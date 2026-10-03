@@ -6,13 +6,91 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-// Example model
+enum Role {
+  admin
+  staff
+  super_admin
+}
+
+enum ProjectStatus {
+  approve
+  cancel
+  resubmit
+  draft // แทนที่ค่าว่าง ('') ใน SQL
+}
+
+model Major {
+  id    Int    @id @default(autoincrement())
+  name  String @db.VarChar(500)
+  
+  users User[]
+
+  @@map("major")
+}
+
+model OperatingBudget {
+  id            Int    @id @default(autoincrement())
+  name          String @db.Text
+  budget_detail String @db.Text
+  
+  projects      ProjectForm[]
+
+  @@map("operating_budget")
+}
+
+model StrategicPlan {
+  id                Int    @id @default(autoincrement())
+  name              String @db.VarChar(500)
+  strategic_details String @db.Text
+  
+  projects          ProjectForm[]
+
+  @@map("strategic_plan")
+}
+
 model User {
-  id    Int     @id @default(autoincrement())
-  email String  @unique
-  name  String?
+  id            Int    @id @default(autoincrement())
+  Email         String @db.VarChar(500)
+  hash_password String @db.VarChar(500)
+  Role          Role
+  Major_id      Int
+  
+  major         Major         @relation(fields: [Major_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  projects      ProjectForm[]
+
+  @@index([Major_id], map: "Major_id")
+  @@map("user")
+}
+
+model ProjectForm {
+  id                       Int          @id @default(autoincrement())
+  name                     String       @db.VarChar(500)
+  strategic_plan_id        Int
+  responsible_person       String       @db.VarChar(500)
+  principles_rationale     String       @db.Text
+  objective                String       @db.Text
+  target_group             String       @db.Text
+  implementation_procedure String       @db.Text
+  duration_of_operations   String       @db.Text
+  location                 String       @db.Text
+  evaluation               String       @db.Text
+  expected_outcomes        String       @db.Text
+  operating_budget_id      Int
+  create_at                DateTime     @default(now()) @db.Timestamp(0)
+  update_at                DateTime     @default(now()) @updatedAt @db.Timestamp(0)
+  create_by                Int
+  status                   ProjectStatus
+
+  operating_budget OperatingBudget @relation(fields: [operating_budget_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  strategic_plan   StrategicPlan   @relation(fields: [strategic_plan_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user             User            @relation(fields: [create_by], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([strategic_plan_id, operating_budget_id], map: "strategic_plan_id")
+  @@index([create_by], map: "create_by")
+  @@index([operating_budget_id], map: "operating_budget_id")
+  @@map("project_form")
 }
