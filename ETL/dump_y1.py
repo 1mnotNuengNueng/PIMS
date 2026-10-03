@@ -1,0 +1,15 @@
+import pandas as pd
+import json
+
+def main():
+    file_path = 'Data/2. รายงานผลแผนปฏิบัติการประจำปี 2569.xlsx'
+    df = pd.read_excel(file_path, sheet_name='ย.1', nrows=10)
+    
+    # Convert dataframe to a list of dicts, replacing NaN with None
+    data = df.where(pd.notnull(df), None).to_dict(orient='records')
+    
+    with open('sheet_y1_sample.json', 'w', encoding='utf-8') as f:
+        json.dump({'columns': list(df.columns), 'data': data}, f, ensure_ascii=False, indent=2, default=str)
+
+if __name__ == '__main__':
+    main()
