@@ -1,0 +1,96 @@
+const mysql = require('mysql2/promise');
+require('dotenv').config();
+
+// Parse DATABASE_URL
+// Format: mysql://user:password@host:port/database?ssl-mode=REQUIRED
+const url = new URL(process.env.DATABASE_URL);
+
+async function seed() {
+  const connection = await mysql.createConnection({
+    host: url.hostname,
+    port: parseInt(url.port),
+    user: url.username,
+    password: url.password,
+    database: url.pathname.replace('/', ''),
+    ssl: { rejectUnauthorized: false },
+  });
+
+  console.log('Connected to database');
+
+  const queries = [
+    // major
+    `INSERT INTO \`major\` (\`id\`, \`name\`) VALUES
+      (1, 'วิทยาการคอมพิวเตอร์'),
+      (2, 'เทคโนโลยีสารสนเทศ')`,
+
+    // operating_budget
+    `INSERT INTO \`operating_budget\` (\`id\`, \`name\`, \`budget_detail\`) VALUES
+      (1, 'งบประมาณแผ่นดิน', 'งบประมาณที่ได้รับการจัดสรรจากภาครัฐ เพื่อใช้ในการดำเนินโครงการพัฒนาการศึกษา'),
+      (2, 'งบรายได้ของมหาวิทยาลัย', 'งบประมาณที่มาจากค่าธรรมเนียมการศึกษาและรายได้อื่น ๆ ของมหาวิทยาลัย')`,
+
+    // strategic_plan
+    `INSERT INTO \`strategic_plan\` (\`id\`, \`name\`, \`strategic_details\`) VALUES
+      (1, 'ยุทธศาสตร์ที่ 1: พัฒนาคุณภาพการศึกษา', 'มุ่งเน้นการพัฒนาหลักสูตรและการเรียนการสอนให้มีคุณภาพสูง เพื่อผลิตบัณฑิตที่มีสมรรถนะตรงกับความต้องการของตลาดแรงงาน'),
+      (2, 'ยุทธศาสตร์ที่ 2: วิจัยและนวัตกรรม', 'ส่งเสริมการวิจัยและสร้างนวัตกรรมที่ตอบสนองต่อความต้องการของสังคมและภาคอุตสาหกรรม')`,
+
+    // user
+    `INSERT INTO \`user\` (\`id\`, \`Email\`, \`hash_password\`, \`Role\`, \`Major_id\`) VALUES
+      (1, 'admin@pims.ac.th', '$2b$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36zLNxJBFKxvFBNpONW2zfq', 'admin', 1),
+      (2, 'staff@pims.ac.th', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'staff', 2)`,
+
+    // project_form
+    `INSERT INTO \`project_form\` (
+        \`id\`, \`name\`, \`strategic_plan_id\`, \`responsible_person\`,
+        \`principles_rationale\`, \`objective\`, \`target_group\`,
+        \`implementation_procedure\`, \`duration_of_operations\`, \`location\`,
+        \`evaluation\`, \`expected_outcomes\`, \`operating_budget_id\`,
+        \`create_at\`, \`update_at\`, \`create_by\`, \`status\`
+      ) VALUES
+      (1, 'โครงการพัฒนาทักษะดิจิทัลสำหรับนักศึกษา', 1, 'อาจารย์สมชาย ใจดี',
+        'ในยุคดิจิทัล นักศึกษาจำเป็นต้องมีทักษะการใช้เทคโนโลยีเพื่อรองรับตลาดแรงงานในอนาคต',
+        'เพื่อพัฒนาทักษะดิจิทัลของนักศึกษาชั้นปีที่ 1-4 ให้ครอบคลุมการใช้งาน AI และ Cloud Computing',
+        'นักศึกษาสาขาวิทยาการคอมพิวเตอร์ ชั้นปีที่ 1-4 จำนวน 120 คน',
+        '1. จัดอบรมเชิงปฏิบัติการ 2. ทดสอบทักษะก่อน-หลัง 3. ประเมินผลความพึงพอใจ',
+        '3 เดือน (มกราคม - มีนาคม 2568)', 'ห้องปฏิบัติการคอมพิวเตอร์ อาคาร IT ชั้น 3',
+        'ประเมินผลโดยแบบทดสอบก่อน-หลังการอบรม และแบบสอบถามความพึงพอใจ',
+        'นักศึกษามีทักษะดิจิทัลเพิ่มขึ้นไม่น้อยกว่า 80% และมีความพึงพอใจในระดับดีมาก',
+        1, '2026-01-10 08:00:00', '2026-01-10 08:00:00', 2, 'approve'),
+      (2, 'โครงการวิจัยระบบแนะนำหลักสูตรด้วย Machine Learning', 2, 'อาจารย์สุดา รักเรียน',
+        'ปัจจุบันนักศึกษามักประสบปัญหาในการเลือกหลักสูตรที่เหมาะสมกับตนเอง การนำ ML มาช่วยแนะนำจะช่วยลดปัญหาดังกล่าว',
+        'เพื่อพัฒนาระบบแนะนำหลักสูตรอัจฉริยะโดยใช้ Machine Learning Algorithm ที่มีความแม่นยำสูง',
+        'นักศึกษาใหม่และอาจารย์ที่ปรึกษาทั้งหมดในคณะ',
+        '1. รวบรวมข้อมูลประวัตินักศึกษา 2. ฝึก Model ML 3. พัฒนา Web Application 4. ทดสอบระบบ 5. ปรับปรุงแก้ไข',
+        '6 เดือน (มีนาคม - สิงหาคม 2568)', 'ห้องวิจัย AI Lab อาคารวิทยาศาสตร์ ชั้น 5',
+        'วัดความแม่นยำของระบบ (Accuracy ≥ 85%) และความพึงพอใจของผู้ใช้งาน',
+        'ได้ระบบแนะนำหลักสูตรที่มีความแม่นยำสูง และตีพิมพ์ผลงานวิจัยในวารสารระดับชาติอย่างน้อย 1 ฉบับ',
+        2, '2026-02-15 09:30:00', '2026-03-01 14:00:00', 2, 'resubmit'),
+      (3, 'โครงการส่งเสริมการเรียนรู้ผ่านสื่อมัลติมีเดีย', 1, 'อาจารย์วิชัย สอนดี',
+        'สื่อมัลติมีเดียช่วยเพิ่มประสิทธิภาพการเรียนรู้และทำให้นักศึกษาสนใจเนื้อหามากขึ้น',
+        'เพื่อผลิตสื่อการเรียนการสอนในรูปแบบวิดีโอและ Interactive Content สำหรับวิชาหลักในหลักสูตร',
+        'นักศึกษาสาขาเทคโนโลยีสารสนเทศ ชั้นปีที่ 2-3 จำนวน 80 คน',
+        '1. สำรวจวิชาที่ต้องการสื่อ 2. ออกแบบ Storyboard 3. ผลิตสื่อวิดีโอ 4. เผยแพร่บน LMS',
+        '4 เดือน (พฤษภาคม - สิงหาคม 2568)', 'ห้องสตูดิโอผลิตสื่อ อาคารนิเทศศาสตร์ ชั้น 2',
+        'ประเมินผลการเรียนรู้ก่อน-หลัง และสำรวจความพึงพอใจของนักศึกษาต่อสื่อที่ผลิต',
+        'ได้สื่อการเรียนการสอนคุณภาพสูงไม่น้อยกว่า 10 รายวิชา และนักศึกษามีผลสัมฤทธิ์ทางการเรียนสูงขึ้น',
+        1, '2026-03-05 10:00:00', '2026-03-05 10:00:00', 2, '')`,
+  ];
+
+  for (const query of queries) {
+    const tableName = query.match(/INSERT INTO `(\w+)`/)?.[1] ?? '?';
+    try {
+      await connection.execute(query);
+      console.log(`✅ Inserted into ${tableName}`);
+    } catch (err) {
+      if (err.code === 'ER_DUP_ENTRY') {
+        console.log(`⚠️  ${tableName}: duplicate entry (ข้อมูลมีอยู่แล้ว ข้ามไป)`);
+      } else {
+        console.error(`❌ ${tableName}: ${err.message}`);
+      }
+    }
+  }
+
+  await connection.end();
+  console.log('\nDone!');
+}
+
+seed().catch(console.error);
