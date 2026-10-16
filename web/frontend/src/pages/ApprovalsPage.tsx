@@ -1,0 +1,141 @@
+import React from 'react';
+import type { Project } from '../types';
+import { statusLabels, statusColors } from '../types';
+import { formatMoney } from '../utils/format';
+import {
+  ShieldIcon,
+  CheckCircleIcon,
+  BuildingIcon,
+  FileTextIcon,
+  DownloadIcon,
+} from '../components/Icons';
+
+interface ApprovalsPageProps {
+  projects: Project[];
+  setWordPreviewProject: (p: Project) => void;
+  downloadWord: (projectId: number) => void;
+  setReviewModalProject: (p: Project) => void;
+  setReviewAction: (action: 'approve' | 'resubmit' | 'cancel') => void;
+  setReviewComment: (comment: string) => void;
+}
+
+export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
+  projects,
+  setWordPreviewProject,
+  downloadWord,
+  setReviewModalProject,
+  setReviewAction,
+  setReviewComment,
+}) => {
+  return (
+    <div className="view-container animate-fade">
+      <div className="desk-hero">
+        <div>
+          <span className="desk-badge">REVIEW & AUDIT DESK</span>
+          <h1 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldIcon size={22} style={{ color: '#8F1730' }} />
+            <span>โต๊ะตรวจเอกสารและพิจารณาอนุมัติโครงการ</span>
+          </h1>
+          <p>
+            เครื่องมือสำหรับฝ่ายพัฒนาองค์กรและผู้บริหาร ในการตรวจสอบความถูกต้อง ความคุ้มค่า และการอนุมัติโครงการ
+          </p>
+        </div>
+
+        <div className="desk-audit-standards">
+          <span className="audit-title">เกณฑ์การตรวจสอบ 4 มิติ:</span>
+          <span className="audit-item"><CheckCircleIcon size={14} /> ยุทธศาสตร์คณะ</span>
+          <span className="audit-item"><CheckCircleIcon size={14} /> ความสมเหตุสมผลของงบ</span>
+          <span className="audit-item"><CheckCircleIcon size={14} /> ตัวชี้วัด KPI วัดผลได้</span>
+          <span className="audit-item"><CheckCircleIcon size={14} /> แผนดำเนินงานชัดเจน</span>
+        </div>
+      </div>
+
+      {/* REVIEW ITEMS GRID */}
+      <div className="review-cards-list">
+        {projects.map((p) => (
+          <article className={`review-item-card ${statusColors[p.status]}`} key={p.id}>
+            <div className="review-card-head">
+              <div className="review-badge-group">
+                <span className={`status-badge ${statusColors[p.status]}`}>
+                  {statusLabels[p.status]}
+                </span>
+                <span className="dept-tag">
+                  <BuildingIcon size={13} /> {p.target_group}
+                </span>
+              </div>
+              <strong className="review-budget-tag">
+                {formatMoney(p.budget_amount)} บาท
+              </strong>
+            </div>
+
+            <h3 className="review-project-title">{p.name}</h3>
+
+            <div className="review-details-grid">
+              <div>
+                <span className="detail-label">ผู้รับผิดชอบโครงการ:</span>
+                <strong className="detail-value">{p.responsible_person}</strong>
+              </div>
+              <div>
+                <span className="detail-label">ยุทธศาสตร์คณะ:</span>
+                <strong className="detail-value">{p.strategic_plan?.name || '-'}</strong>
+              </div>
+              <div>
+                <span className="detail-label">แหล่งงบประมาณ:</span>
+                <strong className="detail-value">{p.operating_budget?.name || '-'}</strong>
+              </div>
+              <div>
+                <span className="detail-label">กำหนดแล้วเสร็จ:</span>
+                <strong className="detail-value">{p.target_date || p.duration_of_operations}</strong>
+              </div>
+              <div className="col-span-2">
+                <span className="detail-label">ตัวชี้วัดความสำเร็จ (KPI):</span>
+                <strong className="detail-value">{p.project_kpi || p.evaluation || '-'}</strong>
+              </div>
+            </div>
+
+            {/* If already has review feedback */}
+            {p.review_comment && (
+              <div className="review-feedback-history">
+                <b>บันทึกความเห็นผู้ตรวจ:</b> {p.review_comment}
+              </div>
+            )}
+
+            {/* ACTION CONTROLS */}
+            <div className="review-card-footer">
+              <button
+                type="button"
+                className="btn-preview-word"
+                onClick={() => setWordPreviewProject(p)}
+              >
+                <FileTextIcon size={14} />
+                <span>ตรวจแบบฟอร์มทางการ (Word Form)</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-download-word"
+                onClick={() => downloadWord(p.id)}
+              >
+                <DownloadIcon size={14} />
+                <span>docx</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn-trigger-review"
+                onClick={() => {
+                  setReviewModalProject(p);
+                  setReviewAction('approve');
+                  setReviewComment(p.review_comment || '');
+                }}
+              >
+                <ShieldIcon size={14} />
+                <span>พิจารณาอนุมัติ / ส่งกลับแก้ไข</span>
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+};
