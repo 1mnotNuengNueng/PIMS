@@ -2,7 +2,6 @@ import React from 'react';
 import type { User, ProjectForm, Metadata } from '../types';
 import { emptyForm } from '../types';
 import {
-  GearIcon,
   FolderIcon,
   ShieldIcon,
   BarChartIcon,
@@ -49,10 +48,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="brand-panel">
         <div className="brand-header-row">
           <div className="brand-emblem">
-            <GearIcon size={22} style={{ color: '#14233B' }} />
+            <img src="/egnkps.png" alt="ตราคณะวิศวกรรมศาสตร์ กำแพงแสน" />
           </div>
           <div>
-            <strong>คณะวิศวกรรมศาสตร์</strong>
+            <strong>คณะวิศวกรรมศาสตร์ กำแพงแสน</strong>
             <span>มหาวิทยาลัยเกษตรศาสตร์</span>
           </div>
         </div>
@@ -106,6 +105,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span className="nav-icon"><FileTextIcon size={16} /></span>
               <span>ทะเบียนโครงการทั้งหมด</span>
               <span className="badge-count">{projectsCount}</span>
+            </button>
+
+            <button
+              type="button"
+              className={activeTab === 'users' ? 'nav-item active' : 'nav-item'}
+              onClick={() => setActiveTab('users')}
+            >
+              <span className="nav-icon"><UserIcon size={16} /></span>
+              <span>จัดการผู้ใช้งาน</span>
             </button>
           </>
         ) : (

@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { randomInt } from 'crypto';
 import { Role } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth } from '../middlewares/auth';
@@ -11,6 +12,8 @@ import {
 } from '../utils/helpers';
 
 export const authRouter = Router();
+
+const passwordResetOtps = new Map<string, { code: string; expiresAt: number; attempts: number; requestedAt: number }>();
 
 // List department units for 1-click login / quick testing
 authRouter.get('/units', async (_req, res, next) => {
@@ -110,6 +113,73 @@ authRouter.post('/register', async (req, res, next) => {
       token: signToken(authUser),
       user: { ...authUser, major: user.major.name },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Development-only password reset flow. OTP is intentionally written to the backend terminal.
+authRouter.post('/forgot-password', async (req, res, next) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(503).json({ message: 'การรีเซ็ตรหัสผ่านด้วย OTP ใน Terminal เปิดใช้ได้เฉพาะโหมดพัฒนา' });
+      return;
+    }
+
+    const email = requiredString(req.body.email, 'อีเมล').toLowerCase();
+    const user = await prisma.user.findUnique({ where: { Email: email }, select: { id: true } });
+
+    // Keep the response identical for known and unknown email addresses.
+    if (user) {
+      const now = Date.now();
+      const current = passwordResetOtps.get(email);
+      if (!current || now - current.requestedAt >= 30_000) {
+        const code = String(randomInt(100000, 1000000));
+        passwordResetOtps.set(email, { code, expiresAt: now + 5 * 60 * 1000, attempts: 0, requestedAt: now });
+        console.info(`[PASSWORD RESET OTP] ${email}: ${code} (expires in 5 minutes)`);
+      }
+    }
+
+    res.json({ message: 'หากอีเมลนี้มีบัญชีในระบบ OTP จะแสดงใน Terminal ของ Backend ภายในไม่กี่วินาที' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+authRouter.post('/reset-password', async (req, res, next) => {
+  try {
+    if (process.env.NODE_ENV === 'production') {
+      res.status(503).json({ message: 'การรีเซ็ตรหัสผ่านด้วย OTP ใน Terminal เปิดใช้ได้เฉพาะโหมดพัฒนา' });
+      return;
+    }
+
+    const email = requiredString(req.body.email, 'อีเมล').toLowerCase();
+    const code = requiredString(req.body.otp, 'OTP');
+    const password = requiredString(req.body.password, 'รหัสผ่านใหม่');
+    if (password.length < 6) {
+      res.status(400).json({ message: 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' });
+      return;
+    }
+
+    const savedOtp = passwordResetOtps.get(email);
+    if (!savedOtp || savedOtp.expiresAt < Date.now() || !/^\d{6}$/.test(code)) {
+      passwordResetOtps.delete(email);
+      res.status(400).json({ message: 'OTP ไม่ถูกต้องหรือหมดอายุ กรุณาขอรหัสใหม่' });
+      return;
+    }
+    if (savedOtp.code !== code) {
+      savedOtp.attempts += 1;
+      if (savedOtp.attempts >= 5) passwordResetOtps.delete(email);
+      res.status(400).json({ message: 'OTP ไม่ถูกต้องหรือหมดอายุ กรุณาตรวจสอบแล้วลองอีกครั้ง' });
+      return;
+    }
+
+    await prisma.user.update({
+      where: { Email: email },
+      data: { hash_password: hashPassword(password) },
+    });
+    passwordResetOtps.delete(email);
+    res.json({ message: 'ตั้งรหัสผ่านใหม่เรียบร้อยแล้ว กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่' });
   } catch (error) {
     next(error);
   }

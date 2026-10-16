@@ -4,6 +4,14 @@ import { statusLabels } from '../types';
 import { formatMoney } from '../utils/format';
 import { GearIcon, DownloadIcon, PrinterIcon } from './Icons';
 
+const documentLines = (value: string) => value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+const numberedDocumentLines = (value: string) => documentLines(value || '-').map((line, index) =>
+  /^\d+[.)]/.test(line) ? line : `${index + 1}. ${line}`,
+);
+const bulletedDocumentLines = (value: string) => documentLines(value || '-').map((line) =>
+  /^[-•]/.test(line) ? line : `• ${line}`,
+);
+
 interface WordPreviewModalProps {
   project: Project | null;
   onClose: () => void;
@@ -64,24 +72,24 @@ export const WordPreviewModal: React.FC<WordPreviewModalProps> = ({
             <div className="doc-emblem">
               <GearIcon size={26} />
             </div>
-            <h1 className="doc-main-title">แบบเสนอโครงการ ประจำปีงบประมาณ พ.ศ. 2569</h1>
+            <h1 className="doc-main-title">โครงการ {project.name}</h1>
             <h2 className="doc-sub-title">คณะวิศวกรรมศาสตร์ กำแพงแสน มหาวิทยาลัยเกษตรศาสตร์</h2>
             <div className="doc-line-separator" />
           </header>
 
           <section className="a4-doc-content">
             <div className="doc-item-row">
-              <span className="doc-sec-num">1. ชื่อโครงการ:</span>
-              <span className="doc-sec-bold">{project.name}</span>
+              <span className="doc-sec-num">1. แผนยุทธศาสตร์/แผนกลยุทธ์:</span>
+              <div className="doc-sub-block">
+                <p><b>แผนยุทธศาสตร์:</b> {project.strategic_plan?.name || '-'}</p>
+                {project.strategic_goal && <p><b>เป้าประสงค์เชิงกลยุทธ์:</b> {project.strategic_goal}</p>}
+                {project.strategic_kpi && <p><b>ตัวชี้วัดระดับยุทธศาสตร์:</b> {project.strategic_kpi}</p>}
+              </div>
             </div>
 
             <div className="doc-item-row">
-              <span className="doc-sec-num">2. ความสอดคล้องกับแผนยุทธศาสตร์คณะ:</span>
-              <div className="doc-sub-block">
-                <p><b>2.1 ประเด็นยุทธศาสตร์:</b> {project.strategic_plan?.name || '-'}</p>
-                <p><b>2.2 เป้าประสงค์เชิงกลยุทธ์:</b> {project.strategic_goal || '-'}</p>
-                <p><b>2.3 ตัวชี้วัดระดับยุทธศาสตร์:</b> {project.strategic_kpi || '-'}</p>
-              </div>
+              <span className="doc-sec-num">2. ชื่อโครงการ:</span>
+              <span className="doc-sec-bold">{project.name}</span>
             </div>
 
             <div className="doc-item-row">
@@ -95,85 +103,77 @@ export const WordPreviewModal: React.FC<WordPreviewModalProps> = ({
             <div className="doc-item-row">
               <span className="doc-sec-num">4. หลักการและเหตุผล:</span>
               <div className="doc-indent-text">
-                {project.principles_rationale || '-'}
+                {documentLines(project.principles_rationale || '-').map((line, idx) => <p key={idx}>{line}</p>)}
               </div>
             </div>
 
             <div className="doc-item-row">
               <span className="doc-sec-num">5. วัตถุประสงค์ของโครงการ:</span>
               <div className="doc-indent-text">
-                {project.objective
-                  .split('\n')
-                  .filter(Boolean)
-                  .map((o, idx) => (
-                    <p key={idx}>{o.startsWith(String(idx + 1)) ? o : `${idx + 1}. ${o}`}</p>
-                  ))}
+                {numberedDocumentLines(project.objective).map((line, idx) => <p key={idx}>{line}</p>)}
               </div>
             </div>
 
             <div className="doc-item-row">
-              <span className="doc-sec-num">6. กลุ่มเป้าหมาย / ผู้เข้าร่วมโครงการ:</span>
+              <span className="doc-sec-num">6. กลุ่มเป้าหมาย:</span>
               <span className="doc-sec-val">{project.target_group}</span>
             </div>
 
             <div className="doc-item-row">
-              <span className="doc-sec-num">7. วิธีดำเนินการ / แผนขั้นตอนการดำเนินงาน:</span>
+              <span className="doc-sec-num">7. วิธีการดำเนินการ:</span>
               <div className="doc-indent-text">
-                {project.implementation_procedure
-                  .split('\n')
-                  .filter(Boolean)
-                  .map((m, idx) => (
-                    <p key={idx}>{m.startsWith(String(idx + 1)) ? m : `${idx + 1}. ${m}`}</p>
-                  ))}
+                {numberedDocumentLines(project.implementation_procedure).map((line, idx) => <p key={idx}>{line}</p>)}
               </div>
             </div>
 
             <div className="doc-item-row">
-              <span className="doc-sec-num">8. ระยะเวลาและสถานที่ดำเนินงาน:</span>
+              <span className="doc-sec-num">8. ระยะเวลาของการดำเนินงาน:</span>
               <div className="doc-sub-block">
-                <p>
-                  <b>8.1 ระยะเวลาดำเนินการ:</b> {project.duration_of_operations}{' '}
-                  (เป้าหมายแล้วเสร็จ: {project.target_date || '-'})
-                </p>
-                <p><b>8.2 สถานที่ดำเนินงาน:</b> {project.location || '-'}</p>
+                {bulletedDocumentLines(project.duration_of_operations).map((line, idx) => <p key={idx}>{line}</p>)}
+                <p><b>กำหนดแล้วเสร็จ:</b> {project.target_date || '-'}</p>
               </div>
             </div>
 
             <div className="doc-item-row">
-              <span className="doc-sec-num">9. ตัวชี้วัดความสำเร็จของโครงการ (KPI) และค่าเป้าหมาย:</span>
-              <div className="doc-sub-block">
-                <p>
-                  <b>9.1 ตัวชี้วัดความสำเร็จ (KPI):</b>{' '}
-                  {project.project_kpi || project.evaluation}
-                </p>
-                <p><b>9.2 ค่าเป้าหมาย:</b> {project.kpi_target || '-'}</p>
-              </div>
-            </div>
-
-            <div className="doc-item-row">
-              <span className="doc-sec-num">10. งบประมาณและแหล่งเงินทุน:</span>
-              <div className="doc-sub-block">
-                <p><b>10.1 แหล่งงบประมาณ:</b> {project.operating_budget?.name || '-'}</p>
-                <p>
-                  <b>10.2 วงเงินงบประมาณรวม:</b>{' '}
-                  <strong className="budget-highlight">
-                    {formatMoney(project.budget_amount)} บาท
-                  </strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="doc-item-row">
-              <span className="doc-sec-num">11. ประโยชน์และผลลัพธ์ที่คาดว่าจะได้รับ:</span>
+              <span className="doc-sec-num">9. สถานที่การดำเนินการ:</span>
               <div className="doc-indent-text">
-                {project.expected_outcomes || '-'}
+                {bulletedDocumentLines(project.location).map((line, idx) => <p key={idx}>{line}</p>)}
+              </div>
+            </div>
+
+            <div className="doc-item-row">
+              <span className="doc-sec-num">10. การประเมินผล (ตัวชี้วัด):</span>
+              <div className="doc-sub-block">
+                <p>
+                  <b>ตัวชี้วัดความสำเร็จ (KPI):</b>{' '}
+                  {project.project_kpi || project.evaluation || '-'}
+                </p>
+                <p><b>ค่าเป้าหมาย:</b> {project.kpi_target || '-'}</p>
+              </div>
+            </div>
+
+            <div className="doc-item-row">
+              <span className="doc-sec-num">11. ผลที่คาดว่าจะได้รับ:</span>
+              <div className="doc-indent-text">
+                {bulletedDocumentLines(project.expected_outcomes).map((line, idx) => <p key={idx}>{line}</p>)}
+              </div>
+            </div>
+
+            <div className="doc-item-row">
+              <span className="doc-sec-num">12. งบประมาณดำเนินการ:</span>
+              <div className="doc-sub-block">
+                <p><b>แหล่งงบประมาณ:</b> {project.operating_budget?.name || '-'}</p>
+                <p>
+                  <b>งบประมาณรวม:</b>{' '}
+                  <strong className="budget-highlight">{formatMoney(project.budget_amount)} บาท</strong>
+                </p>
               </div>
             </div>
 
             {/* Review Feedback history if present */}
             {project.review_comment && (
               <div className="doc-item-row doc-audit-note">
-                <span className="doc-sec-num">12. บันทึกความเห็นจากฝ่ายพัฒนาองค์กร / ผู้อนุมัติ:</span>
+                <span className="doc-sec-num">บันทึกความเห็นจากฝ่ายพัฒนาองค์กร / ผู้อนุมัติ:</span>
                 <div className="doc-audit-highlight">
                   [สถานะ: {statusLabels[project.status]}]{' '}
                   {project.review_comment}
@@ -184,17 +184,19 @@ export const WordPreviewModal: React.FC<WordPreviewModalProps> = ({
             {/* SIGNATURE BLOCK */}
             <div className="doc-signatures-grid">
               <div className="signature-box">
-                <p>(ลงชื่อ).................................................................</p>
-                <strong>({project.responsible_person})</strong>
-                <span>ผู้รับผิดชอบโครงการ / ผู้เสนอโครงการ</span>
-                <span>วันที่ ...... / ...... / 2569</span>
+                <span className="signature-label">ผู้รับผิดชอบโครงการ</span>
+                <div className="sign-line" />
+                <strong className="sign-name">({project.responsible_person})</strong>
+                <span className="sign-title">ผู้รับผิดชอบโครงการ / ผู้เสนอโครงการ</span>
+                <span className="sign-date">วันที่ ...... / ...... / 2569</span>
               </div>
 
               <div className="signature-box">
-                <p>(ลงชื่อ).................................................................</p>
-                <strong>(รองศาสตราจารย์ ดร.สมชาย ดอนเจดีย์)</strong>
-                <span>คณบดีคณะวิศวกรรมศาสตร์ กำแพงแสน (ผู้อนุมัติโครงการ)</span>
-                <span>วันที่ ...... / ...... / 2569</span>
+                <span className="signature-label">ผู้อนุมัติโครงการ</span>
+                <div className="sign-line" />
+                <strong className="sign-name">(รองศาสตราจารย์ ดร.สมชาย ดอนเจดีย์)</strong>
+                <span className="sign-title">คณบดีคณะวิศวกรรมศาสตร์ กำแพงแสน</span>
+                <span className="sign-date">วันที่ ...... / ...... / 2569</span>
               </div>
             </div>
           </section>

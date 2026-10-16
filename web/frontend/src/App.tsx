@@ -30,14 +30,17 @@ import { ApprovalsPage } from './pages/ApprovalsPage';
 import { DeptMatrixPage } from './pages/DeptMatrixPage';
 import { ProjectsRegistryPage } from './pages/ProjectsRegistryPage';
 import { ProposalFormPage } from './pages/ProposalFormPage';
+import { UserManagementPage } from './pages/UserManagementPage';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 const TOKEN_KEY = 'pims_token';
+const OPERATION_DATE_RANGE = /^(\d{4}-\d{2}-\d{2})\s*(?:-|ถึง)\s*(\d{4}-\d{2}-\d{2})$/;
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || '');
   const [user, setUser] = useState<User | null>(null);
   const [units, setUnits] = useState<UnitAccount[]>([]);
+  const [managedUsers, setManagedUsers] = useState<User[]>([]);
   const [metadata, setMetadata] = useState<Metadata>({
     majors: [],
     strategicPlans: [],
@@ -55,7 +58,7 @@ function App() {
   // Dedicated Login Screen States
   const [loginRole, setLoginRole] = useState<'admin' | 'staff'>('admin');
   const [loginEmail, setLoginEmail] = useState('admin@pims.ac.th');
-  const [loginPassword, setLoginPassword] = useState('password');
+  const [loginPassword, setLoginPassword] = useState('');
 
   // Search & Filters
   const [search, setSearch] = useState('');
@@ -198,6 +201,22 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (activeTab !== 'users' || !token || !isAdmin) return;
+    let active = true;
+    fetch(`${API_BASE}/api/users`, { headers: authHeaders })
+      .then(async (response) => {
+        const data = await response.json();
+        if (!response.ok) throw new Error(data?.message || 'โหลดบัญชีผู้ใช้ไม่สำเร็จ');
+        return data as { users: User[] };
+      })
+      .then((data) => { if (active) setManagedUsers(data.users); })
+      .catch((cause) => {
+        if (active) setError(cause instanceof Error ? cause.message : 'โหลดบัญชีผู้ใช้ไม่สำเร็จ');
+      });
+    return () => { active = false; };
+  }, [activeTab, token, isAdmin, authHeaders]);
+
   function handleLogout() {
     localStorage.removeItem(TOKEN_KEY);
     setToken('');
@@ -235,6 +254,47 @@ function App() {
           ? cause.message
           : 'เข้าสู่ระบบไม่สำเร็จ กรุณาตรวจสอบอีเมลหรือรหัสผ่าน',
       );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleRequestPasswordReset(email: string): Promise<boolean> {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const data = await request<{ message: string }>('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      setMessage(data.message);
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'ขอรหัส OTP ไม่สำเร็จ');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResetPassword(email: string, otp: string, password: string): Promise<boolean> {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const data = await request<{ message: string }>('/api/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, password }),
+      });
+      setLoginEmail(email);
+      setMessage(data.message);
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ');
+      return false;
     } finally {
       setLoading(false);
     }
@@ -313,6 +373,27 @@ function App() {
     }
   }
 
+  async function createManagedUser(input: { email: string; password: string; majorId: number }): Promise<boolean> {
+    setLoading(true);
+    setError('');
+    try {
+      await request('/api/users', {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify(input),
+      });
+      const data = await request<{ users: User[] }>('/api/users', { headers: authHeaders });
+      setManagedUsers(data.users);
+      setMessage('สร้างบัญชีผู้ใช้เรียบร้อยแล้ว');
+      return true;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'สร้างบัญชีผู้ใช้ไม่สำเร็จ');
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Load sample template for department staff
   function loadDepartmentSample() {
     const deptName = user?.major || 'ภาควิชาวิศวกรรมคอมพิวเตอร์';
@@ -346,7 +427,9 @@ function App() {
       strategicKpi: 'ร้อยละของนิสิตที่มีสมรรถนะตามมาตรฐานวิชาชีพ',
       targetDate: '30 เม.ย. 2570',
       budgetAmount: '150000',
-      operationPlan: 'พ.ย. 2569 - เม.ย. 2570',
+      operationPlan: '',
+      operationStartDate: '2026-11-01',
+      operationEndDate: '2027-04-30',
       progressRisk:
         'ต้องติดตามการจัดสรรตารางกิจกรรมไม่ให้กระทบต่อตารางการเรียนการสอนปกติ',
       expectedOutcomes:
@@ -361,6 +444,19 @@ function App() {
     setLoading(true);
     setError('');
     setMessage('');
+
+    const hasOperationStart = Boolean(form.operationStartDate);
+    const hasOperationEnd = Boolean(form.operationEndDate);
+    if (hasOperationStart !== hasOperationEnd) {
+      setError('กรุณาเลือกทั้งวันเริ่มต้นและวันสิ้นสุดของแผนการดำเนินการ');
+      setLoading(false);
+      return;
+    }
+    if (hasOperationStart && form.operationEndDate < form.operationStartDate) {
+      setError('วันสิ้นสุดต้องไม่อยู่ก่อนวันเริ่มต้น');
+      setLoading(false);
+      return;
+    }
 
     const payload = {
       name: form.projectName,
@@ -380,7 +476,9 @@ function App() {
       kpi_target: form.kpiTarget,
       target_date: form.targetDate || form.endDate,
       budget_amount: Number(form.budgetAmount) || 0,
-      operation_plan: form.operationPlan || form.methods.filter(Boolean).join('\n'),
+      operation_plan: hasOperationStart
+        ? `${form.operationStartDate} ถึง ${form.operationEndDate}`
+        : form.operationPlan || form.methods.filter(Boolean).join('\n'),
       progress_risk: form.progressRisk,
       review_comment: form.reviewComment || '',
       operating_budget_id: Number(form.operatingBudgetId),
@@ -432,6 +530,7 @@ function App() {
     const [startDate = '', endDate = ''] = (project.duration_of_operations || '')
       .split(' - ')
       .map((item) => item.trim());
+    const operationDateRange = (project.operation_plan || '').match(OPERATION_DATE_RANGE);
 
     setForm({
       id: project.id,
@@ -458,7 +557,9 @@ function App() {
       strategicKpi: project.strategic_kpi || '',
       targetDate: project.target_date || '',
       budgetAmount: String(project.budget_amount || ''),
-      operationPlan: project.operation_plan || '',
+      operationPlan: operationDateRange ? '' : project.operation_plan || '',
+      operationStartDate: operationDateRange?.[1] || '',
+      operationEndDate: operationDateRange?.[2] || '',
       progressRisk: project.progress_risk || '',
       expectedOutcomes: project.expected_outcomes || '',
       reviewComment: project.review_comment || '',
@@ -470,20 +571,22 @@ function App() {
   }
 
   async function deleteProject(projectId: number) {
-    if (!confirm('ยืนยันการลบโครงการนี้ออกจากระบบ?')) return;
+    const project = projects.find((item) => item.id === projectId);
+    if (!confirm(`ยืนยันยกเลิกโครงการ${project ? ` “${project.name}”` : ''}? ข้อมูลจะยังอยู่ในระบบ`)) return;
 
     setLoading(true);
     setError('');
 
     try {
-      await request(`/api/projects/${projectId}`, {
-        method: 'DELETE',
+      await request(`/api/projects/${projectId}/review`, {
+        method: 'POST',
         headers: authHeaders,
+        body: JSON.stringify({ action: 'cancel', comment: '' }),
       });
-      setMessage('ลบโครงการเรียบร้อยแล้ว');
+      setMessage('ยกเลิกโครงการเรียบร้อยแล้ว ข้อมูลยังอยู่ในระบบ');
       await refreshProjects();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'ลบข้อมูลไม่สำเร็จ');
+      setError(cause instanceof Error ? cause.message : 'ยกเลิกโครงการไม่สำเร็จ');
     } finally {
       setLoading(false);
     }
@@ -590,7 +693,8 @@ function App() {
         loading={loading}
         units={units}
         onLoginSubmit={handleLoginSubmit}
-        onFastLogin={handleFastLogin}
+        onRequestPasswordReset={handleRequestPasswordReset}
+        onResetPassword={handleResetPassword}
       />
     );
   }
@@ -672,7 +776,6 @@ function App() {
           <ApprovalsPage
             projects={projects}
             setWordPreviewProject={setWordPreviewProject}
-            downloadWord={downloadWord}
             setReviewModalProject={setReviewModalProject}
             setReviewAction={setReviewAction}
             setReviewComment={setReviewComment}
@@ -685,6 +788,15 @@ function App() {
             dashboard={dashboard}
             setSearch={setSearch}
             setActiveTab={setActiveTab}
+          />
+        )}
+
+        {activeTab === 'users' && isAdmin && (
+          <UserManagementPage
+            users={managedUsers}
+            departments={metadata.majors}
+            loading={loading}
+            onCreate={createManagedUser}
           />
         )}
 
@@ -720,7 +832,6 @@ function App() {
             setActiveTab={setActiveTab}
             setActiveStep={setActiveStep}
             setWordPreviewProject={setWordPreviewProject}
-            downloadWord={downloadWord}
             setProgressModalProject={setProgressModalProject}
             setProgressRiskText={setProgressRiskText}
             setOperationPlanText={setOperationPlanText}

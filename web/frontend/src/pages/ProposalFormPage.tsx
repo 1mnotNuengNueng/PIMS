@@ -450,15 +450,43 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
                 />
               </label>
 
-              <label className="field-block">
-                <span className="field-label">แผนการดำเนินงานรายเดือน / ไตรมาส</span>
-                <input
-                  type="text"
-                  value={form.operationPlan}
-                  onChange={(e) => updateField('operationPlan', e.target.value)}
-                  placeholder="เช่น ต.ค. 2568 - ส.ค. 2569"
-                />
-              </label>
+              <div className="field-block col-span-2 operation-date-range">
+                <span className="field-label">แผนการดำเนินการรายเดือน / ไตรมาส</span>
+                <div className="operation-date-inputs">
+                  <label>
+                    <span>วันเริ่มต้น</span>
+                    <input
+                      type="date"
+                      value={form.operationStartDate}
+                      max={form.operationEndDate || undefined}
+                      onChange={(event) => setForm((current) => ({
+                        ...current,
+                        operationPlan: '',
+                        operationStartDate: event.target.value,
+                      }))}
+                    />
+                  </label>
+                  <span className="operation-date-separator">ถึง</span>
+                  <label>
+                    <span>วันสิ้นสุด</span>
+                    <input
+                      type="date"
+                      value={form.operationEndDate}
+                      min={form.operationStartDate || undefined}
+                      onChange={(event) => setForm((current) => ({
+                        ...current,
+                        operationPlan: '',
+                        operationEndDate: event.target.value,
+                      }))}
+                    />
+                  </label>
+                </div>
+                {form.operationPlan && (
+                  <span className="operation-date-legacy">
+                    แผนเดิม: {form.operationPlan} — เลือกวันเริ่มต้นและสิ้นสุดเพื่อเปลี่ยนเป็นช่วงวันที่
+                  </span>
+                )}
+              </div>
 
               <label className="field-block col-span-2">
                 <span className="field-label">รายละเอียดความก้าวหน้า / ความเสี่ยง / ปัญหาอุปสรรค</span>

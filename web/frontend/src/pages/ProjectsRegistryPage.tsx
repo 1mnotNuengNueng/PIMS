@@ -8,7 +8,6 @@ import {
   SearchIcon,
   UserIcon,
   AlertCircleIcon,
-  DownloadIcon,
   TrendingUpIcon,
   EditIcon,
   ShieldIcon,
@@ -30,7 +29,6 @@ interface ProjectsRegistryPageProps {
   setActiveTab: (tab: string) => void;
   setActiveStep: (step: number) => void;
   setWordPreviewProject: (p: Project) => void;
-  downloadWord: (projectId: number) => void;
   setProgressModalProject: (p: Project) => void;
   setProgressRiskText: (text: string) => void;
   setOperationPlanText: (text: string) => void;
@@ -57,7 +55,6 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
   setActiveTab,
   setActiveStep,
   setWordPreviewProject,
-  downloadWord,
   setProgressModalProject,
   setProgressRiskText,
   setOperationPlanText,
@@ -206,16 +203,6 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                         <span>Word Form</span>
                       </button>
 
-                      <button
-                        type="button"
-                        className="btn-action-download"
-                        title="ดาวน์โหลดไฟล์ .docx"
-                        onClick={() => downloadWord(p.id)}
-                      >
-                        <DownloadIcon size={13} />
-                        <span>docx</span>
-                      </button>
-
                       {/* Staff progress update button */}
                       {personaMode === 'staff' && (
                         <button
@@ -262,7 +249,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                         type="button"
                         className="btn-action-del"
                         onClick={() => deleteProject(p.id)}
-                        title="ลบโครงการ"
+                        title="ยกเลิกโครงการ (ข้อมูลยังอยู่ในระบบ)"
                       >
                         <TrashIcon size={13} />
                       </button>

@@ -99,6 +99,8 @@ export type ProjectForm = {
   targetDate: string;
   budgetAmount: string;
   operationPlan: string;
+  operationStartDate: string;
+  operationEndDate: string;
   progressRisk: string;
   expectedOutcomes: string;
   reviewComment?: string;
@@ -147,6 +149,8 @@ export const emptyForm: ProjectForm = {
   targetDate: '',
   budgetAmount: '',
   operationPlan: '',
+  operationStartDate: '',
+  operationEndDate: '',
   progressRisk: '',
   expectedOutcomes: '',
   reviewComment: '',

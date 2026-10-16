@@ -17,7 +17,8 @@ interface LoginPageProps {
   loading: boolean;
   units?: UnitAccount[];
   onLoginSubmit: (e: FormEvent<HTMLFormElement>) => void;
-  onFastLogin: (email: string) => void;
+  onRequestPasswordReset: (email: string) => Promise<boolean>;
+  onResetPassword: (email: string, otp: string, password: string) => Promise<boolean>;
 }
 
 export const LoginPage: React.FC<LoginPageProps> = ({
@@ -34,10 +35,31 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   loading,
   units = [],
   onLoginSubmit,
-  onFastLogin,
+  onRequestPasswordReset,
+  onResetPassword,
 }) => {
   const adminUnits = units.filter((u) => u.role === 'admin' || u.role === 'super_admin');
   const staffUnits = units.filter((u) => u.role === 'staff');
+  const [resetMode, setResetMode] = React.useState(false);
+  const [otpRequested, setOtpRequested] = React.useState(false);
+  const [otp, setOtp] = React.useState('');
+  const [newPassword, setNewPassword] = React.useState('');
+
+  async function submitReset(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const succeeded = otpRequested
+      ? await onResetPassword(loginEmail, otp, newPassword)
+      : await onRequestPasswordReset(loginEmail);
+    if (succeeded && otpRequested) {
+      setResetMode(false);
+      setOtpRequested(false);
+      setOtp('');
+      setNewPassword('');
+      setLoginPassword('');
+    } else if (succeeded) {
+      setOtpRequested(true);
+    }
+  }
 
   return (
     <div className="login-page-container">
@@ -60,7 +82,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 setLoginRole('admin');
                 const defaultAdm = adminUnits[0]?.email || 'admin@pims.ac.th';
                 setLoginEmail(defaultAdm);
-                setLoginPassword('password');
+                setLoginPassword('');
                 setError('');
               }}
             >
@@ -73,7 +95,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 setLoginRole('staff');
                 const defaultStaff = staffUnits[0]?.email || 'staff@pims.ac.th';
                 setLoginEmail(defaultStaff);
-                setLoginPassword('password');
+                setLoginPassword('');
                 setError('');
               }}
             >
@@ -103,99 +125,55 @@ export const LoginPage: React.FC<LoginPageProps> = ({
             </div>
           )}
 
-          <form onSubmit={onLoginSubmit} className="login-form-fields">
-            <label className="field-block">
-              <span className="field-label required">อีเมลผู้ใช้งาน</span>
-              <input
-                required
-                type="email"
-                value={loginEmail}
-                onChange={(e) => setLoginEmail(e.target.value)}
-                placeholder="เช่น admin@pims.ac.th หรือ staff@pims.ac.th"
-              />
-            </label>
-
-            <label className="field-block">
-              <span className="field-label required">รหัสผ่าน</span>
-              <input
-                required
-                type="password"
-                value={loginPassword}
-                onChange={(e) => setLoginPassword(e.target.value)}
-                placeholder="รหัสผ่านเข้าสู่ระบบ (เช่น password หรือ pims2026)"
-              />
-            </label>
-
-            <button type="submit" className="btn-login-submit" disabled={loading}>
-              {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ (Sign In)'}
-            </button>
-          </form>
-
-          <div className="fast-login-divider">
-            <span>หรือเลือกเข้าสู่ระบบด่วน 1-Click</span>
-          </div>
-
-          <div className="fast-login-presets">
-            {loginRole === 'admin' ? (
-              adminUnits.length > 0 ? (
-                adminUnits.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    className="btn-preset-login"
-                    onClick={() => onFastLogin(u.email)}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <ShieldIcon size={16} />
-                      <strong>{u.majorName || 'ผู้ดูแลระบบ'} (Admin)</strong>
-                    </div>
-                    <span>{u.email} ❯</span>
-                  </button>
-                ))
-              ) : (
-                <button
-                  type="button"
-                  className="btn-preset-login"
-                  onClick={() => onFastLogin('admin@pims.ac.th')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <ShieldIcon size={16} />
-                    <strong>ผู้ดูแลระบบ (Admin)</strong>
-                  </div>
-                  <span>admin@pims.ac.th ❯</span>
+          {resetMode ? (
+            <form onSubmit={submitReset} className="login-form-fields">
+              <div className="reset-password-heading">
+                <strong>ตั้งรหัสผ่านใหม่</strong>
+                <span>OTP สำหรับทดสอบจะแสดงใน Terminal ที่รัน Backend และมีอายุ 5 นาที</span>
+              </div>
+              <label className="field-block">
+                <span className="field-label required">อีเมลผู้ใช้งาน</span>
+                <input required type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="อีเมลที่ใช้เข้าสู่ระบบ" />
+              </label>
+              {otpRequested && (
+                <>
+                  <label className="field-block">
+                    <span className="field-label required">รหัส OTP</span>
+                    <input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="กรอกรหัส 6 หลักจาก Terminal" />
+                  </label>
+                  <label className="field-block">
+                    <span className="field-label required">รหัสผ่านใหม่</span>
+                    <input required minLength={6} type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="อย่างน้อย 6 ตัวอักษร" />
+                  </label>
+                </>
+              )}
+              <button type="submit" className="btn-login-submit" disabled={loading}>
+                {loading ? 'กำลังดำเนินการ...' : otpRequested ? 'ยืนยัน OTP และตั้งรหัสผ่าน' : 'ขอรหัส OTP'}
+              </button>
+              <button type="button" className="login-forgot-link reset-back-link" onClick={() => { setResetMode(false); setOtpRequested(false); setError(''); setMessage(''); }}>
+                กลับไปหน้าเข้าสู่ระบบ
+              </button>
+            </form>
+          ) : (
+            <>
+              <form onSubmit={onLoginSubmit} className="login-form-fields">
+                <label className="field-block">
+                  <span className="field-label required">อีเมลผู้ใช้งาน</span>
+                  <input required type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="กรอกอีเมลผู้ใช้งาน" />
+                </label>
+                <label className="field-block">
+                  <span className="field-label required">รหัสผ่าน</span>
+                  <input required type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="กรอกรหัสผ่าน" />
+                </label>
+                <button type="submit" className="btn-login-submit" disabled={loading}>
+                  {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ (Sign In)'}
                 </button>
-              )
-            ) : (
-              staffUnits.length > 0 ? (
-                staffUnits.map((u) => (
-                  <button
-                    key={u.id}
-                    type="button"
-                    className="btn-preset-login"
-                    onClick={() => onFastLogin(u.email)}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <BuildingIcon size={16} />
-                      <strong>{u.majorName || 'เจ้าหน้าที่สาขาวิชา'}</strong>
-                    </div>
-                    <span>{u.email} ❯</span>
-                  </button>
-                ))
-              ) : (
-                <button
-                  type="button"
-                  className="btn-preset-login"
-                  onClick={() => onFastLogin('staff@pims.ac.th')}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <BuildingIcon size={16} />
-                    <strong>เจ้าหน้าที่สาขาวิชา (Staff)</strong>
-                  </div>
-                  <span>staff@pims.ac.th ❯</span>
-                </button>
-              )
-            )}
-          </div>
+              </form>
+              <button type="button" className="login-forgot-link" onClick={() => { setResetMode(true); setError(''); setMessage(''); }}>
+                ลืมรหัสผ่าน?
+              </button>
+            </>
+          )}
 
           <p className="login-footer-hint">
             ระบบบริหารแผนปฏิบัติการและสารบรรณโครงการ (PIMS) เชื่อมต่อฐานข้อมูลออนไลน์

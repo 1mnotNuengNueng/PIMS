@@ -46,6 +46,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       ? ((dashboard.approvedBudgetTotal / dashboard.budgetTotal) * 100).toFixed(1)
       : '0.0';
 
+  const strategyChartItems = Array.from({ length: 4 }, (_, index) => dashboard.byStrategy[index] ?? null);
+  const maxStrategyBudget = Math.max(...dashboard.byStrategy.map((strategy) => strategy.budget), 1);
+
   return (
     <div className="view-container animate-fade">
       {/* Hero Banner */}
@@ -204,25 +207,30 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            {/* Stylized Mini Bar Chart Graphic representing real strategy budgets */}
-            <div className="mini-bar-chart-graphic" title="แนวโน้มการจัดสรรงบประมาณตามยุทธศาสตร์">
-              {dashboard.byStrategy.map((s) => {
-                const maxBudget = Math.max(...dashboard.byStrategy.map((item) => item.budget), 1);
-                const heightPct = Math.max(15, Math.round((s.budget / maxBudget) * 100));
-                return (
-                  <div
-                    key={s.strategic_plan_id}
-                    className="mini-bar-col"
-                    style={{ height: `${heightPct}%` }}
-                    title={`${s.name}: ${formatMoney(s.budget)} บ.`}
-                  />
-                );
-              })}
-              {dashboard.byStrategy.length === 0 && (
-                [40, 65, 80, 50].map((val, i) => (
-                  <div key={i} className="mini-bar-col" style={{ height: `${val}%` }} />
-                ))
-              )}
+            {/* Budget bars by strategy, with a short label and exact values. */}
+            <div className="strategy-chart" aria-label="งบประมาณแยกตามยุทธศาสตร์">
+              <div className="strategy-chart-bars">
+                {strategyChartItems.map((strategy, index) => {
+                  const heightPct = strategy ? Math.max(8, Math.round((strategy.budget / maxStrategyBudget) * 100)) : 0;
+                  return (
+                    <div className={`strategy-bar-item${strategy ? '' : ' is-empty'}`} key={strategy?.strategic_plan_id ?? `empty-${index}`}>
+                      <span className="strategy-bar-value">{strategy ? formatMoney(strategy.budget) : '—'}</span>
+                      <div className="strategy-bar-track">
+                        {strategy && <div
+                          className="mini-bar-col"
+                          style={{ height: `${heightPct}%` }}
+                          title={`${strategy.name}: ${formatMoney(strategy.budget)} บาท`}
+                        />}
+                      </div>
+                      <span className="strategy-bar-label" title={strategy?.name ?? `ยังไม่มีข้อมูลยุทธศาสตร์ที่ ${index + 1}`}>
+                        {strategy?.name ?? `ยุทธศาสตร์ที่ ${index + 1}`}
+                      </span>
+                      <span className="strategy-bar-count">{strategy ? `${strategy.count} โครงการ` : 'ยังไม่มีข้อมูล'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <span className="strategy-chart-caption">งบประมาณตามยุทธศาสตร์ (บาท)</span>
             </div>
           </div>
         </div>

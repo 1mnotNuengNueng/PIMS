@@ -42,12 +42,7 @@ export function verifyPassword(password: string, storedHash: string): boolean {
     } catch {}
   }
 
-  // 2. Convenience passwords for demo / master access
-  if (password === 'password' || password === 'pims2026') {
-    return true;
-  }
-
-  // 3. PBKDF2 hash verification
+  // PBKDF2 hash verification
   const [method, iterations, salt, hash] = storedHash.split('$');
   if (method !== 'pbkdf2' || !iterations || !salt || !hash) {
     return false;

@@ -7,13 +7,11 @@ import {
   CheckCircleIcon,
   BuildingIcon,
   FileTextIcon,
-  DownloadIcon,
 } from '../components/Icons';
 
 interface ApprovalsPageProps {
   projects: Project[];
   setWordPreviewProject: (p: Project) => void;
-  downloadWord: (projectId: number) => void;
   setReviewModalProject: (p: Project) => void;
   setReviewAction: (action: 'approve' | 'resubmit' | 'cancel') => void;
   setReviewComment: (comment: string) => void;
@@ -22,7 +20,6 @@ interface ApprovalsPageProps {
 export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
   projects,
   setWordPreviewProject,
-  downloadWord,
   setReviewModalProject,
   setReviewAction,
   setReviewComment,
@@ -109,15 +106,6 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
               >
                 <FileTextIcon size={14} />
                 <span>ตรวจแบบฟอร์มทางการ (Word Form)</span>
-              </button>
-
-              <button
-                type="button"
-                className="btn-download-word"
-                onClick={() => downloadWord(p.id)}
-              >
-                <DownloadIcon size={14} />
-                <span>docx</span>
               </button>
 
               <button
