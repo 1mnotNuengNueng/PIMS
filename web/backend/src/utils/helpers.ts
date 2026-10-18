@@ -109,6 +109,7 @@ export function readToken(token: string): AuthUser | null {
 }
 
 export function normalizeStatus(value: unknown): ProjectStatus {
+  if (value === 'submitted') return ProjectStatus.submitted;
   if (value === ProjectStatus.approve || value === 'approve' || value === 'เสร็จสิ้น' || value === 'อนุมัติแล้ว') {
     return ProjectStatus.approve;
   }

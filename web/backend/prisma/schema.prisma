@@ -40,6 +40,8 @@ model User {
   Role          Role
   Major_id      Int
   projects      ProjectForm[]
+  quarterly_reports ProjectQuarterlyReport[] @relation("ReportAuthor")
+  reviewed_reports  ProjectQuarterlyReport[] @relation("ReportReviewer")
   major         Major         @relation(fields: [Major_id], references: [id], onDelete: Cascade, map: "user_ibfk_1")
 
   @@index([Major_id], map: "Major_id")
@@ -47,6 +49,8 @@ model User {
 }
 
 model ProjectForm {
+  fiscal_year              Int?
+  quarter                  Int?
   id                       Int                 @id @default(autoincrement())
   name                     String              @db.VarChar(500)
   strategic_plan_id        Int
@@ -68,6 +72,10 @@ model ProjectForm {
   operation_plan           String?             @db.Text
   progress_risk            String?             @db.Text
   review_comment           String?             @db.Text
+  submitted_at             DateTime?           @db.DateTime(0)
+  cancelled_at             DateTime?           @db.DateTime(0)
+  cancellation_reason      String?             @db.Text
+  replacement_for_id       Int?
   operating_budget_id      Int
   create_at                DateTime            @default(now()) @db.Timestamp(0)
   update_at                DateTime            @default(now()) @updatedAt @db.Timestamp(0)
@@ -76,10 +84,14 @@ model ProjectForm {
   operating_budget         OperatingBudget     @relation(fields: [operating_budget_id], references: [id], onDelete: Cascade, map: "project_form_ibfk_1")
   strategic_plan           StrategicPlan       @relation(fields: [strategic_plan_id], references: [id], onDelete: Cascade, map: "project_form_ibfk_2")
   user                     User                @relation(fields: [create_by], references: [id], onDelete: Cascade, map: "project_form_ibfk_3")
+  quarterly_reports        ProjectQuarterlyReport[]
+  replacement_for          ProjectForm?        @relation("ProjectReplacement", fields: [replacement_for_id], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  replacement_projects     ProjectForm[]       @relation("ProjectReplacement")
 
   @@index([strategic_plan_id, operating_budget_id], map: "strategic_plan_id")
   @@index([create_by], map: "create_by")
   @@index([operating_budget_id], map: "operating_budget_id")
+  @@index([replacement_for_id])
   @@map("project_form")
 }
 
@@ -89,7 +101,70 @@ enum Role {
   super_admin
 }
 
+model FiscalYear {
+  id         Int            @id @default(autoincrement())
+  year       Int            @unique
+  start_date DateTime       @db.Date
+  end_date   DateTime       @db.Date
+  periods    FiscalPeriod[]
+
+  @@map("fiscal_year")
+}
+
+model FiscalPeriod {
+  id               Int                      @id @default(autoincrement())
+  fiscal_year_id   Int
+  quarter          Int
+  start_date       DateTime                 @db.Date
+  end_date         DateTime                 @db.Date
+  report_due_date  DateTime                 @db.Date
+  fiscal_year      FiscalYear               @relation(fields: [fiscal_year_id], references: [id], onDelete: Restrict)
+  reports          ProjectQuarterlyReport[]
+
+  @@unique([fiscal_year_id, quarter])
+  @@map("fiscal_period")
+}
+
+model ProjectQuarterlyReport {
+  id               Int                   @id @default(autoincrement())
+  project_id       Int
+  fiscal_period_id Int
+  results          String                @db.Text
+  kpi_results      String                @db.Text
+  budget_spent     Decimal               @default(0) @db.Decimal(14, 2)
+  progress_percent Decimal               @default(0) @db.Decimal(5, 2)
+  problems         String?               @db.Text
+  next_steps       String?               @db.Text
+  status           QuarterlyReportStatus @default(draft)
+  reported_by      Int
+  submitted_at     DateTime?             @db.DateTime(0)
+  reviewed_by      Int?
+  reviewed_at      DateTime?             @db.DateTime(0)
+  review_comment   String?               @db.Text
+  is_demo          Boolean               @default(false)
+  created_at       DateTime              @default(now()) @db.DateTime(0)
+  updated_at       DateTime              @default(now()) @updatedAt @db.DateTime(0)
+  project          ProjectForm           @relation(fields: [project_id], references: [id], onDelete: Restrict)
+  fiscal_period    FiscalPeriod          @relation(fields: [fiscal_period_id], references: [id], onDelete: Restrict)
+  author           User                  @relation("ReportAuthor", fields: [reported_by], references: [id], onDelete: Restrict)
+  reviewer         User?                 @relation("ReportReviewer", fields: [reviewed_by], references: [id], onDelete: SetNull)
+
+  @@unique([project_id, fiscal_period_id])
+  @@index([fiscal_period_id, status])
+  @@index([reported_by])
+  @@index([reviewed_by])
+  @@map("project_quarterly_report")
+}
+
+enum QuarterlyReportStatus {
+  draft
+  submitted
+  approved
+  resubmit
+}
+
 enum project_form_status {
+  submitted
   approve
   cancel
   resubmit

@@ -27,6 +27,8 @@ import { LoginPage } from './pages/LoginPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { StaffDashboard } from './pages/StaffDashboard';
 import { ApprovalsPage } from './pages/ApprovalsPage';
+import { ProjectReviewPage } from './pages/ProjectReviewPage';
+import { reviewProjectId } from './utils/quarterlyReview';
 import { DeptMatrixPage } from './pages/DeptMatrixPage';
 import { ProjectsRegistryPage } from './pages/ProjectsRegistryPage';
 import { ProposalFormPage } from './pages/ProposalFormPage';
@@ -35,6 +37,13 @@ import { UserManagementPage } from './pages/UserManagementPage';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
 const TOKEN_KEY = 'pims_token';
 const OPERATION_DATE_RANGE = /^(\d{4}-\d{2}-\d{2})\s*(?:-|ถึง)\s*(\d{4}-\d{2}-\d{2})$/;
+
+async function request<T>(path: string, options: RequestInit = {}) {
+  const response = await fetch(`${API_BASE}${path}`, options);
+  const data = response.status === 204 ? null : await response.json();
+  if (!response.ok) throw new Error(data?.message || 'เชื่อมต่อระบบไม่สำเร็จ');
+  return data as T;
+}
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY) || '');
@@ -53,6 +62,22 @@ function App() {
   // System Persona: 'admin' (ฝ่ายพัฒนาองค์กร / ตรวจงาน) OR 'staff' (เจ้าหน้าที่สาขาวิชา / หน่วยงาน)
   const [personaMode, setPersonaMode] = useState<'admin' | 'staff'>('admin');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [detailProjectId, setDetailProjectId] = useState(() => reviewProjectId(window.location.hash));
+  const [detailRefreshKey, setDetailRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      setDetailProjectId(reviewProjectId(window.location.hash));
+      if (window.location.hash === '#/approvals') setActiveTab('approvals');
+    };
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  function openProjectReview(project: Project) {
+    window.location.hash = `/admin/projects/${project.id}`;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
   const [activeStep, setActiveStep] = useState(0);
 
   // Dedicated Login Screen States
@@ -83,8 +108,6 @@ function App() {
 
   // Progress Update Modal State (For department staff)
   const [progressModalProject, setProgressModalProject] = useState<Project | null>(null);
-  const [progressRiskText, setProgressRiskText] = useState('');
-  const [operationPlanText, setOperationPlanText] = useState('');
 
   const authHeaders = useMemo(
     () => ({
@@ -111,24 +134,13 @@ function App() {
 
   // Count pending review for admin
   const pendingReviewCount = useMemo(() => {
-    return projects.filter((p) => p.status === 'draft' || p.status === 'resubmit').length;
+    return projects.filter((p) => p.status === 'submitted').length;
   }, [projects]);
 
   // Count urgent revisions for current branch
   const branchResubmitCount = useMemo(() => {
     return currentDepartmentProjects.filter((p) => p.status === 'resubmit').length;
   }, [currentDepartmentProjects]);
-
-  async function request<T>(path: string, options: RequestInit = {}) {
-    const response = await fetch(`${API_BASE}${path}`, options);
-    const data = response.status === 204 ? null : await response.json();
-
-    if (!response.ok) {
-      throw new Error(data?.message || 'เชื่อมต่อระบบไม่สำเร็จ');
-    }
-
-    return data as T;
-  }
 
   async function loadAppData(activeToken = token) {
     if (!activeToken) {
@@ -218,6 +230,7 @@ function App() {
   }, [activeTab, token, isAdmin, authHeaders]);
 
   function handleLogout() {
+    window.location.hash = '';
     localStorage.removeItem(TOKEN_KEY);
     setToken('');
     setUser(null);
@@ -399,6 +412,9 @@ function App() {
     const deptName = user?.major || 'ภาควิชาวิศวกรรมคอมพิวเตอร์';
     setForm({
       projectName: `โครงการพัฒนาทักษะวิศวกรรมและการบูรณาการองค์ความรู้ (${deptName})`,
+      ...(form.replacementForId ? { replacementForId: form.replacementForId } : {}),
+      fiscalYear: form.fiscalYear || '2570',
+      quarter: form.quarter || '1',
       strategicPlanId: String(metadata.strategicPlans[0]?.id || 1),
       operatingBudgetId: String(metadata.operatingBudgets[1]?.id || 2),
       department: deptName,
@@ -440,7 +456,7 @@ function App() {
   }
 
   // Handle project submit
-  async function handleProjectSubmit(submitStatus: 'draft' | 'resubmit') {
+  async function handleProjectSubmit(submitStatus: 'draft' | 'submitted') {
     setLoading(true);
     setError('');
     setMessage('');
@@ -458,7 +474,17 @@ function App() {
       return;
     }
 
+    if (!form.fiscalYear || !form.quarter) {
+      setError('กรุณาเลือกปีงบประมาณและไตรมาสที่จะดำเนินโครงการ');
+      setActiveStep(0);
+      setLoading(false);
+      return;
+    }
+
     const payload = {
+      replacement_for_id: form.replacementForId ?? null,
+      fiscal_year: Number(form.fiscalYear),
+      quarter: Number(form.quarter),
       name: form.projectName,
       strategic_plan_id: Number(form.strategicPlanId),
       responsible_person: form.owner,
@@ -493,7 +519,7 @@ function App() {
           body: JSON.stringify(payload),
         });
         setMessage(
-          submitStatus === 'resubmit'
+          submitStatus === 'submitted'
             ? 'ส่งโครงการเพื่อรอพิจารณาอนุมัติเรียบร้อยแล้ว'
             : 'บันทึกฉบับร่างโครงการเรียบร้อยแล้ว',
         );
@@ -504,7 +530,7 @@ function App() {
           body: JSON.stringify(payload),
         });
         setMessage(
-          submitStatus === 'resubmit'
+          submitStatus === 'submitted'
             ? 'ยื่นแบบเสนอโครงการเพื่อขออนุมัติเรียบร้อยแล้ว'
             : 'บันทึกโครงการฉบับร่างเรียบร้อยแล้ว',
         );
@@ -534,6 +560,9 @@ function App() {
 
     setForm({
       id: project.id,
+      ...(project.replacement_for_id ? { replacementForId: project.replacement_for_id } : {}),
+      fiscalYear: project.fiscal_year ? String(project.fiscal_year) : '',
+      quarter: project.quarter ? String(project.quarter) : '',
       projectName: project.name,
       strategicPlanId: String(project.strategic_plan_id),
       operatingBudgetId: String(project.operating_budget_id),
@@ -572,7 +601,9 @@ function App() {
 
   async function deleteProject(projectId: number) {
     const project = projects.find((item) => item.id === projectId);
-    if (!confirm(`ยืนยันยกเลิกโครงการ${project ? ` “${project.name}”` : ''}? ข้อมูลจะยังอยู่ในระบบ`)) return;
+    const reason = prompt(`เหตุผลการยกเลิกโครงการ${project ? ` “${project.name}”` : ''} (เก็บข้อมูลเดิมไว้)`);
+    if (reason === null) return;
+    if (!reason.trim()) { setError('กรุณาระบุเหตุผลการยกเลิก'); return; }
 
     setLoading(true);
     setError('');
@@ -581,7 +612,7 @@ function App() {
       await request(`/api/projects/${projectId}/review`, {
         method: 'POST',
         headers: authHeaders,
-        body: JSON.stringify({ action: 'cancel', comment: '' }),
+        body: JSON.stringify({ action: 'cancel', comment: reason.trim() }),
       });
       setMessage('ยกเลิกโครงการเรียบร้อยแล้ว ข้อมูลยังอยู่ในระบบ');
       await refreshProjects();
@@ -617,6 +648,7 @@ function App() {
       );
 
       setReviewModalProject(null);
+      setDetailRefreshKey((value) => value + 1);
       setReviewComment('');
       await refreshProjects();
     } catch (cause) {
@@ -626,30 +658,22 @@ function App() {
     }
   }
 
-  // Handle Quarterly Progress Update by Branch Staff
+  // Quarterly modal saves the selected period, then refreshes the parent lists.
   async function submitProgressUpdate() {
-    if (!progressModalProject) return;
-    setLoading(true);
-    setError('');
+    setProgressModalProject(null);
+    setMessage('บันทึกรายงานตามรอบไตรมาสแล้ว');
+    await refreshProjects();
+  }
 
-    try {
-      await request(`/api/projects/${progressModalProject.id}/progress`, {
-        method: 'PATCH',
-        headers: authHeaders,
-        body: JSON.stringify({
-          progress_risk: progressRiskText,
-          operation_plan: operationPlanText,
-        }),
-      });
-
-      setMessage(`อัปเดตรายงานความก้าวหน้าโครงการ "${progressModalProject.name}" เรียบร้อยแล้ว`);
-      setProgressModalProject(null);
-      await refreshProjects();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'อัปเดตไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
+  function startReplacement(project: Project) {
+    const nextQuarter = project.quarter && project.quarter < 4 ? project.quarter + 1 : 1;
+    const nextYear = (project.fiscal_year || Number(emptyForm.fiscalYear)) + (project.quarter === 4 ? 1 : 0);
+    setForm({ ...emptyForm, replacementForId: project.id, fiscalYear: String(nextYear), quarter: String(nextQuarter),
+      department: user?.major || '', strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
+      operatingBudgetId: String(metadata.operatingBudgets[0]?.id || '') });
+    setActiveStep(0);
+    setActiveTab('submit_form');
+    window.location.hash = '';
   }
 
   function downloadWord(projectId: number) {
@@ -708,8 +732,8 @@ function App() {
       <Sidebar
         user={user}
         isAdmin={isAdmin}
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        activeTab={detailProjectId ? 'approvals' : activeTab}
+        setActiveTab={(tab) => { window.location.hash = ''; setActiveTab(tab); }}
         pendingReviewCount={pendingReviewCount}
         projectsCount={projects.length}
         branchProjectsCount={currentDepartmentProjects.length}
@@ -747,6 +771,22 @@ function App() {
           </div>
         )}
 
+        {detailProjectId ? <ProjectReviewPage
+          key={detailProjectId}
+          projectId={detailProjectId}
+          request={request}
+          authHeaders={authHeaders}
+          onBack={() => { window.location.hash = '/approvals'; }}
+          onWordPreview={setWordPreviewProject}
+          onProjectReview={(project) => {
+            setReviewModalProject(project);
+            setReviewAction(project.status === 'submitted' ? 'approve' : 'cancel');
+            setReviewComment('');
+          }}
+          onCreateReplacement={startReplacement}
+          onReportsChanged={refreshProjects}
+          refreshKey={detailRefreshKey}
+        /> : <>
         {/* VIEW 1: EXECUTIVE FACULTY OVERVIEW (ADMIN MODE) */}
         {activeTab === 'dashboard' && personaMode === 'admin' && (
           <AdminDashboard
@@ -766,8 +806,6 @@ function App() {
             editProject={editProject}
             setWordPreviewProject={setWordPreviewProject}
             setProgressModalProject={setProgressModalProject}
-            setProgressRiskText={setProgressRiskText}
-            setOperationPlanText={setOperationPlanText}
           />
         )}
 
@@ -776,9 +814,7 @@ function App() {
           <ApprovalsPage
             projects={projects}
             setWordPreviewProject={setWordPreviewProject}
-            setReviewModalProject={setReviewModalProject}
-            setReviewAction={setReviewAction}
-            setReviewComment={setReviewComment}
+            onOpenDetails={openProjectReview}
           />
         )}
 
@@ -833,16 +869,16 @@ function App() {
             setActiveStep={setActiveStep}
             setWordPreviewProject={setWordPreviewProject}
             setProgressModalProject={setProgressModalProject}
-            setProgressRiskText={setProgressRiskText}
-            setOperationPlanText={setOperationPlanText}
             editProject={editProject}
             isApprover={isApprover}
-            setReviewModalProject={setReviewModalProject}
+            setReviewModalProject={openProjectReview}
             setReviewAction={setReviewAction}
             setReviewComment={setReviewComment}
+            onCreateReplacement={startReplacement}
             deleteProject={deleteProject}
           />
         )}
+        </>}
       </main>
 
       {/* ---------------- MODALS ---------------- */}
@@ -867,13 +903,11 @@ function App() {
 
       {/* 3. PROGRESS UPDATE MODAL (STAFF) */}
       <ProgressModal
+        key={progressModalProject?.id || 'closed'}
         project={progressModalProject}
-        progressRiskText={progressRiskText}
-        setProgressRiskText={setProgressRiskText}
-        operationPlanText={operationPlanText}
-        setOperationPlanText={setOperationPlanText}
-        loading={loading}
         onClose={() => setProgressModalProject(null)}
+        request={request}
+        authHeaders={authHeaders}
         onSubmitProgressUpdate={submitProgressUpdate}
       />
 

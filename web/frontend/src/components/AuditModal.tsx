@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Project } from '../types';
 import { formatMoney } from '../utils/format';
+import { ProjectDetails } from './ProjectDetails';
 import { CheckCircleIcon, ClockIcon, AlertCircleIcon, ShieldIcon } from './Icons';
 
 interface AuditModalProps {
@@ -28,14 +29,14 @@ export const AuditModal: React.FC<AuditModalProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card-box" onClick={(e) => e.stopPropagation()} role="dialog">
+      <div className="modal-card-box project-review-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label="รายละเอียดและพิจารณาโครงการ">
         <div className="modal-card-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ background: '#8F1730', color: '#fff', padding: '8px', borderRadius: '8px', display: 'flex' }}>
               <ShieldIcon size={20} />
             </div>
             <div>
-              <h2>พิจารณาอนุมัติโครงการ (Audit & Approval)</h2>
+              <h2>พิจารณาสถานะโครงการ</h2>
               <p>ฝ่ายพัฒนาองค์กร / ผู้มีอำนาจอนุมัติ คณะวิศวกรรมศาสตร์</p>
             </div>
           </div>
@@ -52,12 +53,15 @@ export const AuditModal: React.FC<AuditModalProps> = ({
           </p>
         </div>
 
+        <ProjectDetails project={project} />
+        <h3>ผลการพิจารณา</h3>
         <div className="review-action-options">
           <label className={`action-card ${reviewAction === 'approve' ? 'selected approve' : ''}`}>
             <input
               type="radio"
               name="reviewAction"
               checked={reviewAction === 'approve'}
+              disabled={loading || project.status !== 'submitted'}
               onChange={() => setReviewAction('approve')}
             />
             <div>
@@ -74,6 +78,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
               type="radio"
               name="reviewAction"
               checked={reviewAction === 'resubmit'}
+              disabled={loading || project.status !== 'submitted'}
               onChange={() => setReviewAction('resubmit')}
             />
             <div>
@@ -90,6 +95,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
               type="radio"
               name="reviewAction"
               checked={reviewAction === 'cancel'}
+              disabled={loading || project.status === 'cancel'}
               onChange={() => setReviewAction('cancel')}
             />
             <div>
@@ -104,13 +110,13 @@ export const AuditModal: React.FC<AuditModalProps> = ({
 
         <label className="field-block">
           <span className="field-label required">
-            {reviewAction === 'resubmit'
+            {reviewAction === 'cancel' ? 'เหตุผลการยกเลิก (จำเป็นต้องระบุ):' : reviewAction === 'resubmit'
               ? 'ข้อความแจ้งสิ่งที่สาขาต้องแก้ไข (จำเป็นต้องระบุ):'
               : 'บันทึกความเห็น / ข้อเสนอแนะเพิ่มเติม:'}
           </span>
           <textarea
             rows={4}
-            required={reviewAction === 'resubmit'}
+            required={reviewAction !== 'approve'}
             value={reviewComment}
             onChange={(e) => setReviewComment(e.target.value)}
             placeholder={
@@ -132,7 +138,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
           <button
             type="button"
             className={`btn-confirm-action ${reviewAction}`}
-            disabled={loading || (reviewAction === 'resubmit' && !reviewComment.trim())}
+            disabled={loading || project.status === 'cancel' || (reviewAction !== 'cancel' && project.status !== 'submitted') || (reviewAction !== 'approve' && !reviewComment.trim())}
             onClick={onSubmitReview}
           >
             {loading

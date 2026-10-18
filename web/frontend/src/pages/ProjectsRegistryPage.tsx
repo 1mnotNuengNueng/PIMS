@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { PeriodFilter } from '../components/PeriodFilter';
+import { fiscalPeriodLabel, matchesPeriod } from '../utils/fiscalPeriod';
 import type { User, Project, ProjectForm, Metadata } from '../types';
 import { statusLabels, statusColors, emptyForm } from '../types';
 import { formatMoney } from '../utils/format';
@@ -30,14 +32,13 @@ interface ProjectsRegistryPageProps {
   setActiveStep: (step: number) => void;
   setWordPreviewProject: (p: Project) => void;
   setProgressModalProject: (p: Project) => void;
-  setProgressRiskText: (text: string) => void;
-  setOperationPlanText: (text: string) => void;
   editProject: (p: Project) => void;
   isApprover: boolean;
   setReviewModalProject: (p: Project) => void;
   setReviewAction: (action: 'approve' | 'resubmit' | 'cancel') => void;
   setReviewComment: (comment: string) => void;
   deleteProject: (projectId: number) => void;
+  onCreateReplacement: (project: Project) => void;
 }
 
 export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
@@ -56,15 +57,17 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
   setActiveStep,
   setWordPreviewProject,
   setProgressModalProject,
-  setProgressRiskText,
-  setOperationPlanText,
   editProject,
   isApprover,
   setReviewModalProject,
   setReviewAction,
   setReviewComment,
   deleteProject,
+  onCreateReplacement,
 }) => {
+  const [year, setYear] = useState('all');
+  const [quarter, setQuarter] = useState('all');
+  const visibleProjects = filteredProjects.filter((project) => matchesPeriod(project, year, quarter));
   return (
     <div className="view-container animate-fade">
       <div className="projects-header-row">
@@ -128,6 +131,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
             <option value="approve">อนุมัติแล้ว</option>
             <option value="resubmit">ส่งกลับแก้ไข</option>
             <option value="draft">ฉบับร่าง</option>
+            <option value="submitted">ส่งข้อเสนอแล้ว / รอพิจารณา</option>
             <option value="cancel">ยกเลิก</option>
           </select>
 
@@ -147,6 +151,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
       </div>
 
       {/* Main Projects Table */}
+      <PeriodFilter projects={filteredProjects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter} />
       <div className="content-card full-card">
         <div className="table-responsive">
           <table className="modern-table">
@@ -162,10 +167,11 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
               </tr>
             </thead>
             <tbody>
-              {filteredProjects.map((p) => (
+              {visibleProjects.map((p) => (
                 <tr key={p.id}>
                   <td>
                     <strong>{p.name}</strong>
+                    <span className="cell-subtext">{fiscalPeriodLabel(p.fiscal_year, p.quarter)}</span>
                     <span className="cell-subtext" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <UserIcon size={12} /> {p.responsible_person}
                     </span>
@@ -204,15 +210,13 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                       </button>
 
                       {/* Staff progress update button */}
-                      {personaMode === 'staff' && (
+                      {personaMode === 'staff' && p.status === 'approve' && (
                         <button
                           type="button"
                           className="btn-action-progress"
                           title="อัปเดตรายงานความก้าวหน้ารายไตรมาส"
                           onClick={() => {
                             setProgressModalProject(p);
-                            setProgressRiskText(p.progress_risk || '');
-                            setOperationPlanText(p.operation_plan || '');
                           }}
                         >
                           <TrendingUpIcon size={13} />
@@ -223,6 +227,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                       <button
                         type="button"
                         className="btn-action-edit"
+                        disabled={p.status !== 'draft' && p.status !== 'resubmit'}
                         onClick={() => editProject(p)}
                       >
                         <EditIcon size={13} />
@@ -248,16 +253,18 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                       <button
                         type="button"
                         className="btn-action-del"
+                        disabled={p.status === 'cancel'}
                         onClick={() => deleteProject(p.id)}
                         title="ยกเลิกโครงการ (ข้อมูลยังอยู่ในระบบ)"
                       >
                         <TrashIcon size={13} />
                       </button>
+                      {p.status === 'cancel' && <button type="button" className="btn-outline" onClick={() => onCreateReplacement(p)}>สร้างโครงการทดแทน</button>}
                     </div>
                   </td>
                 </tr>
               ))}
-              {!filteredProjects.length && (
+              {!visibleProjects.length && (
                 <tr>
                   <td colSpan={7} className="text-center empty-cell">
                     ไม่พบโครงการที่ค้นหา

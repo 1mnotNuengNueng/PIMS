@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { PeriodFilter } from '../components/PeriodFilter';
+import { fiscalPeriodLabel, matchesPeriod } from '../utils/fiscalPeriod';
 import type { Project } from '../types';
 import { statusLabels, statusColors } from '../types';
 import { formatMoney } from '../utils/format';
@@ -12,18 +14,17 @@ import {
 interface ApprovalsPageProps {
   projects: Project[];
   setWordPreviewProject: (p: Project) => void;
-  setReviewModalProject: (p: Project) => void;
-  setReviewAction: (action: 'approve' | 'resubmit' | 'cancel') => void;
-  setReviewComment: (comment: string) => void;
+  onOpenDetails: (project: Project) => void;
 }
 
 export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
   projects,
   setWordPreviewProject,
-  setReviewModalProject,
-  setReviewAction,
-  setReviewComment,
+  onOpenDetails,
 }) => {
+  const [year, setYear] = useState('all');
+  const [quarter, setQuarter] = useState('all');
+  const visibleProjects = projects.filter((project) => matchesPeriod(project, year, quarter));
   return (
     <div className="view-container animate-fade">
       <div className="desk-hero">
@@ -48,8 +49,11 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
       </div>
 
       {/* REVIEW ITEMS GRID */}
+      <p className="review-filter-hint">กรองตามปีและไตรมาสในแผนโครงการ แล้วเลือกรอบรายงานที่ต้องการตรวจในหน้ารายละเอียด</p>
+      <PeriodFilter projects={projects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter} />
       <div className="review-cards-list">
-        {projects.map((p) => (
+        {!visibleProjects.length && <p className="empty-cell">ไม่พบโครงการในปีงบประมาณ / ไตรมาสที่เลือก</p>}
+        {visibleProjects.map((p) => (
           <article className={`review-item-card ${statusColors[p.status]}`} key={p.id}>
             <div className="review-card-head">
               <div className="review-badge-group">
@@ -66,6 +70,7 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
             </div>
 
             <h3 className="review-project-title">{p.name}</h3>
+            <p className="project-period">แผนดำเนินโครงการ: {fiscalPeriodLabel(p.fiscal_year, p.quarter)}</p>
 
             <div className="review-details-grid">
               <div>
@@ -99,6 +104,9 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
 
             {/* ACTION CONTROLS */}
             <div className="review-card-footer">
+              <button type="button" className="btn-trigger-review" onClick={() => onOpenDetails(p)}>
+                ดูรายละเอียด / ตรวจรายไตรมาส
+              </button>
               <button
                 type="button"
                 className="btn-preview-word"
@@ -108,18 +116,6 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
                 <span>ตรวจแบบฟอร์มทางการ (Word Form)</span>
               </button>
 
-              <button
-                type="button"
-                className="btn-trigger-review"
-                onClick={() => {
-                  setReviewModalProject(p);
-                  setReviewAction('approve');
-                  setReviewComment(p.review_comment || '');
-                }}
-              >
-                <ShieldIcon size={14} />
-                <span>พิจารณาอนุมัติ / ส่งกลับแก้ไข</span>
-              </button>
             </div>
           </article>
         ))}

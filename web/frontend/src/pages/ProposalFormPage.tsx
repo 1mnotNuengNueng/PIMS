@@ -2,6 +2,7 @@ import React from 'react';
 import type { User, ProjectForm, Metadata } from '../types';
 import { steps, emptyForm } from '../types';
 import { formatMoney } from '../utils/format';
+import { quarters, fiscalYearOptions, fiscalPeriodLabel } from '../utils/fiscalPeriod';
 import {
   FileTextIcon,
   AlertCircleIcon,
@@ -17,7 +18,7 @@ interface ProposalFormPageProps {
   activeStep: number;
   setActiveStep: (step: number | ((prev: number) => number)) => void;
   loadDepartmentSample: () => void;
-  handleProjectSubmit: (targetStatus: 'draft' | 'resubmit') => void;
+  handleProjectSubmit: (targetStatus: 'draft' | 'submitted') => void;
   loading: boolean;
 }
 
@@ -57,6 +58,8 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
 
   // Completeness Calculation
   const requiredFields: Array<keyof ProjectForm> = [
+    'fiscalYear',
+    'quarter',
     'projectName',
     'strategicPlanId',
     'operatingBudgetId',
@@ -112,6 +115,8 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
         </div>
       </div>
 
+      {form.replacementForId && <p className="quarter-review-notice">โครงการใหม่ทดแทนโครงการเดิม #{form.replacementForId} — ประวัติโครงการเดิมจะยังอยู่</p>}
+      <p className="quarter-review-notice">รอบเริ่มต้นเป็นการส่งข้อเสนอโครงการ หลังอนุมัติแล้วจึงรายงานความคืบหน้าในไตรมาสถัดไป</p>
       {/* If Resubmitted notice */}
       {form.reviewComment && form.status === 'resubmit' && (
         <div className="resubmit-callout animate-fade">
@@ -149,7 +154,7 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
         className="stepper-form-card"
         onSubmit={(e) => {
           e.preventDefault();
-          handleProjectSubmit(form.status === 'resubmit' ? 'resubmit' : 'draft');
+          handleProjectSubmit('submitted');
         }}
       >
         {/* STEP 1: Basic Info */}
@@ -158,6 +163,21 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
             <h2 className="step-pane-title">1. ข้อมูลพื้นฐานโครงการ</h2>
 
             <div className="input-grid two-cols">
+              <label className="field-block">
+                <span className="field-label required">ปีงบประมาณ (พ.ศ.)</span>
+                <select required value={form.fiscalYear} onChange={(e) => updateField('fiscalYear', e.target.value)}>
+                  <option value="">เลือกปีงบประมาณ</option>
+                  {fiscalYearOptions(form.fiscalYear ? [Number(form.fiscalYear)] : []).map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+                {form.fiscalYear && <small>ต.ค. {Number(form.fiscalYear) - 1} – ก.ย. {form.fiscalYear}</small>}
+              </label>
+              <label className="field-block">
+                <span className="field-label required">ไตรมาสเริ่มต้น / ยื่นข้อเสนอ</span>
+                <select required value={form.quarter} onChange={(e) => updateField('quarter', e.target.value)}>
+                  <option value="">เลือกไตรมาส</option>
+                  {quarters.map((quarter) => <option key={quarter.value} value={quarter.value}>{quarter.label}</option>)}
+                </select>
+              </label>
               <label className="field-block col-span-2">
                 <span className="field-label required">ชื่อโครงการ / กิจกรรม</span>
                 <input
@@ -542,9 +562,10 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
             </div>
 
             <div className="form-completeness-box">
+              <p>{fiscalPeriodLabel(Number(form.fiscalYear), Number(form.quarter))}</p>
               <div className="completeness-info">
                 <span>ความครบถ้วนของแบบฟอร์ม: {progressPercent}%</span>
-                <span>กรอกแล้ว {completedRequired} จาก 10 หัวข้อสำคัญ</span>
+                <span>กรอกแล้ว {completedRequired} จาก {requiredFields.length} หัวข้อสำคัญ</span>
               </div>
               <div className="progress-track">
                 <div className="progress-fill bar-color-2" style={{ width: `${progressPercent}%` }} />
@@ -590,7 +611,7 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
               type="button"
               className="btn-submit-proposal"
               disabled={loading || !form.projectName}
-              onClick={() => handleProjectSubmit(form.status === 'resubmit' ? 'resubmit' : 'draft')}
+              onClick={() => handleProjectSubmit('submitted')}
             >
               <SendIcon size={14} />
               <span>{form.status === 'resubmit' ? 'ส่งโครงการอีกครั้ง (Resubmit)' : 'ยื่นแบบเสนอโครงการ'}</span>

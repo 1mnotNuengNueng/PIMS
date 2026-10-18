@@ -58,7 +58,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <h1 className="hero-title-main">ภาพรวมแผนปฏิบัติการ</h1>
           <h2 className="hero-title-sub">คณะวิศวกรรมศาสตร์ กำแพงแสน</h2>
           <p className="hero-text-desc">
-            ศูนย์ควบคุมและติดตามความคืบหน้าโครงการ งบประมาณ และตัวชี้วัด (KPI) ประจำปีงบประมาณ 2569 ข้อมูลตรงจากฐานข้อมูล
+            ศูนย์ควบคุมและติดตามความคืบหน้าโครงการ งบประมาณ และตัวชี้วัด (KPI) ภาพรวมทุกปีงบประมาณ
           </p>
         </div>
         <div className="hero-cta-actions">
@@ -68,7 +68,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             onClick={() => {}}
           >
             <CalendarIcon size={15} />
-            <span>ปีงบประมาณ 2569</span>
+            <span>ภาพรวมทุกปีงบประมาณ</span>
             <ChevronDownIcon size={14} />
           </button>
           <button

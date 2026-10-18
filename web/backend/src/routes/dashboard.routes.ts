@@ -28,7 +28,7 @@ dashboardRouter.get('/', requireAuth, async (_req: AuthedRequest, res, next) => 
       prisma.projectForm.count({ where: { status: ProjectStatus.resubmit } }),
       prisma.projectForm.count({
         where: {
-          OR: [{ status: ProjectStatus.draft }, { status: ProjectStatus.EMPTY_ENUM_VALUE }],
+          OR: [{ status: ProjectStatus.draft }, { status: ProjectStatus.submitted }, { status: ProjectStatus.EMPTY_ENUM_VALUE }],
         },
       }),
       prisma.projectForm.count({ where: { status: ProjectStatus.cancel } }),

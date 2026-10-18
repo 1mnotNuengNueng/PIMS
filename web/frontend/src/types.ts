@@ -1,3 +1,5 @@
+import { currentFiscalYear } from './utils/fiscalPeriod';
+
 export type Role = 'admin' | 'staff' | 'super_admin';
 
 export type User = {
@@ -29,6 +31,8 @@ export type Metadata = {
 };
 
 export type Project = {
+  fiscal_year: number | null;
+  quarter: number | null;
   id: number;
   name: string;
   responsible_person: string;
@@ -49,7 +53,13 @@ export type Project = {
   operation_plan: string;
   progress_risk: string;
   review_comment?: string;
-  status: 'draft' | 'approve' | 'cancel' | 'resubmit';
+  status: 'draft' | 'submitted' | 'approve' | 'cancel' | 'resubmit';
+  submitted_at?: string | null;
+  cancelled_at?: string | null;
+  cancellation_reason?: string | null;
+  replacement_for_id?: number | null;
+  replacement_for?: { id: number; name: string } | null;
+  replacement_projects?: Array<{ id: number; name: string; fiscal_year: number | null; quarter: number | null }>;
   strategic_plan_id: number;
   operating_budget_id: number;
   update_at: string;
@@ -77,7 +87,41 @@ export type Dashboard = {
   byDepartment: Array<{ majorId: number; name: string; count: number; approved: number; resubmit: number; budget: number }>;
 };
 
+export type FiscalPeriod = {
+  id: number;
+  quarter: number;
+  start_date: string;
+  end_date: string;
+  report_due_date: string;
+  fiscal_year: { id: number; year: number };
+};
+
+export type QuarterlyReport = {
+  id: number;
+  project_id: number;
+  fiscal_period_id: number;
+  fiscal_period: FiscalPeriod;
+  results: string;
+  kpi_results: string;
+  budget_spent: number;
+  progress_percent: number;
+  problems: string | null;
+  next_steps: string | null;
+  status: 'draft' | 'submitted' | 'approved' | 'resubmit';
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  review_comment: string | null;
+  is_demo: boolean;
+  author: { id: number; Email: string };
+  reviewer: { id: number; Email: string } | null;
+};
+
+export type ProjectReviewData = { project: Project; reports: QuarterlyReport[]; periods: FiscalPeriod[] };
+
 export type ProjectForm = {
+  replacementForId?: number;
+  fiscalYear: string;
+  quarter: string;
   id?: number;
   projectName: string;
   strategicPlanId: string;
@@ -107,7 +151,8 @@ export type ProjectForm = {
 };
 
 export const statusLabels: Record<Project['status'], string> = {
-  draft: 'ฉบับร่าง / รอพิจารณา',
+  draft: 'ฉบับร่าง / ยังไม่ส่ง',
+  submitted: 'ส่งข้อเสนอแล้ว / รอพิจารณา',
   approve: 'อนุมัติแล้ว',
   resubmit: 'ส่งกลับเพื่อแก้ไข',
   cancel: 'ยกเลิกโครงการ',
@@ -115,6 +160,7 @@ export const statusLabels: Record<Project['status'], string> = {
 
 export const statusColors: Record<Project['status'], string> = {
   draft: 'blue',
+  submitted: 'blue',
   approve: 'green',
   resubmit: 'amber',
   cancel: 'red',
@@ -129,6 +175,8 @@ export const steps = [
 ];
 
 export const emptyForm: ProjectForm = {
+  fiscalYear: String(currentFiscalYear()),
+  quarter: '1',
   projectName: '',
   strategicPlanId: '',
   operatingBudgetId: '',

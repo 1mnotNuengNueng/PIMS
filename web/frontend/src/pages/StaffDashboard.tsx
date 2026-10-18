@@ -23,8 +23,6 @@ interface StaffDashboardProps {
   editProject: (p: Project) => void;
   setWordPreviewProject: (p: Project) => void;
   setProgressModalProject: (p: Project) => void;
-  setProgressRiskText: (text: string) => void;
-  setOperationPlanText: (text: string) => void;
 }
 
 export const StaffDashboard: React.FC<StaffDashboardProps> = ({
@@ -36,8 +34,6 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   editProject,
   setWordPreviewProject,
   setProgressModalProject,
-  setProgressRiskText,
-  setOperationPlanText,
 }) => {
   const totalBranchBudget = currentDepartmentProjects.reduce((sum, p) => sum + (p.budget_amount || 0), 0);
   const approvedBranchBudget = currentDepartmentProjects
@@ -53,7 +49,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           <h1 className="hero-title-main">พื้นที่ปฏิบัติงาน: {user?.major || 'สาขาวิชา'}</h1>
           <h2 className="hero-title-sub">คณะวิศวกรรมศาสตร์ กำแพงแสน</h2>
           <p className="hero-text-desc">
-            ระบบจัดการ ยื่นเอกสารแบบเสนอโครงการ และรายงานความก้าวหน้าตามแผนปฏิบัติการ ประจำปีงบประมาณ 2569
+            ระบบจัดการ ยื่นเอกสารแบบเสนอโครงการ และรายงานความก้าวหน้าตามแผนปฏิบัติการทุกปีงบประมาณ
           </p>
         </div>
 
@@ -127,7 +123,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <span className="kpi-subtitle-note">โครงการทั้งหมดของสาขา</span>
           </div>
           <div className="kpi-trend-footer neutral">
-            <span>✦ ประจำปีงบประมาณ 2569</span>
+            <span>✦ ภาพรวมทุกปีงบประมาณ</span>
           </div>
         </div>
 
@@ -277,10 +273,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       <button
                         type="button"
                         className="btn-action-progress"
+                        disabled={p.status !== 'approve'}
                         onClick={() => {
                           setProgressModalProject(p);
-                          setProgressRiskText(p.progress_risk || '');
-                          setOperationPlanText(p.operation_plan || '');
                         }}
                       >
                         <TrendingUpIcon size={13} />
@@ -289,6 +284,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       <button
                         type="button"
                         className="btn-action-edit"
+                        disabled={p.status !== 'draft' && p.status !== 'resubmit'}
                         onClick={() => editProject(p)}
                       >
                         <EditIcon size={13} />
