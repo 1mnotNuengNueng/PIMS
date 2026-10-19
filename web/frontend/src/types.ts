@@ -31,6 +31,10 @@ export type Metadata = {
 };
 
 export type Project = {
+  latest_report?: {
+    id: number; status: QuarterlyReport['status']; progress_percent: number; budget_spent: number;
+    fiscal_year: number; quarter: number;
+  } | null;
   fiscal_year: number | null;
   quarter: number | null;
   id: number;

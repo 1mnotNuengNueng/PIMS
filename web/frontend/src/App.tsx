@@ -659,9 +659,9 @@ function App() {
   }
 
   // Quarterly modal saves the selected period, then refreshes the parent lists.
-  async function submitProgressUpdate() {
-    setProgressModalProject(null);
-    setMessage('บันทึกรายงานตามรอบไตรมาสแล้ว');
+  async function submitProgressUpdate(status: 'draft' | 'submitted') {
+    if (status === 'submitted') setProgressModalProject(null);
+    setMessage(status === 'draft' ? 'บันทึกร่างรายงานความคืบหน้าแล้ว' : 'ส่งรายงานความคืบหน้ารอพิจารณาแล้ว');
     await refreshProjects();
   }
 

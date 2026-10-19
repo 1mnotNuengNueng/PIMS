@@ -2,6 +2,7 @@ import React from 'react';
 import type { User, Project } from '../types';
 import { statusLabels, statusColors } from '../types';
 import { formatMoney } from '../utils/format';
+import { StaffProgressSummary } from '../components/StaffProgressSummary';
 import {
   FileTextIcon,
   FolderIcon,
@@ -235,6 +236,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                 <th>ผู้รับผิดชอบ</th>
                 <th>งบประมาณ</th>
                 <th>สถานะปัจจุบัน</th>
+                <th>ความคืบหน้าล่าสุด</th>
                 <th>ข้อเสนอแนะฝ่ายตรวจ</th>
                 <th className="text-center">การดำเนินการ</th>
               </tr>
@@ -252,6 +254,9 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                     <span className={`status-badge ${statusColors[p.status]}`}>
                       {statusLabels[p.status]}
                     </span>
+                  </td>
+                  <td>
+                    <StaffProgressSummary project={p} />
                   </td>
                   <td>
                     {p.review_comment ? (
@@ -273,13 +278,12 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                       <button
                         type="button"
                         className="btn-action-progress"
-                        disabled={p.status !== 'approve'}
                         onClick={() => {
                           setProgressModalProject(p);
                         }}
                       >
                         <TrendingUpIcon size={13} />
-                        <span>อัปเดตความก้าวหน้า</span>
+                        <span>{p.status === 'approve' ? 'อัปเดตความคืบหน้า' : 'ดูรายงานความคืบหน้า'}</span>
                       </button>
                       <button
                         type="button"
@@ -296,7 +300,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               ))}
               {!currentDepartmentProjects.length && (
                 <tr>
-                  <td colSpan={6} className="text-center empty-cell" style={{ padding: '36px', color: '#64748B' }}>
+                  <td colSpan={7} className="text-center empty-cell" style={{ padding: '36px', color: '#64748B' }}>
                     สาขาวิชายังไม่ได้ยื่นแบบเสนอโครงการ
                   </td>
                 </tr>

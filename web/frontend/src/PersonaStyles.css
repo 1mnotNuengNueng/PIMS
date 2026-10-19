@@ -3742,3 +3742,11 @@
   color: #be123c;
 }
 
+.staff-progress-summary { min-width: 170px; display: grid; gap: 5px; }
+.staff-progress-summary progress { width: 100%; height: 9px; accent-color: #8f1730; }
+.staff-report-history { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.staff-report-history h3 { font-size: 15px; margin: 0 0 12px; }
+.staff-report-history-item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; width: 100%; text-align: left; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 8px; background: #fff; color: #334155; cursor: pointer; font: inherit; }
+.staff-report-history-item[aria-pressed="true"] { border-color: #8f1730; background: #fff1f2; }
+.staff-report-history-item:disabled { cursor: wait; opacity: .6; }
+

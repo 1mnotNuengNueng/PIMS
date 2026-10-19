@@ -4,6 +4,7 @@ import { fiscalPeriodLabel, matchesPeriod } from '../utils/fiscalPeriod';
 import type { User, Project, ProjectForm, Metadata } from '../types';
 import { statusLabels, statusColors, emptyForm } from '../types';
 import { formatMoney } from '../utils/format';
+import { StaffProgressSummary } from '../components/StaffProgressSummary';
 import {
   FileTextIcon,
   PlusIcon,
@@ -162,6 +163,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                 <th>งบประมาณ</th>
                 <th>กำหนดเสร็จ</th>
                 <th>สถานะ</th>
+                {personaMode === 'staff' && <th>ความคืบหน้าล่าสุด</th>}
                 <th>อัปเดตล่าสุด</th>
                 <th className="text-center">การจัดการ & เอกสาร</th>
               </tr>
@@ -194,6 +196,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                       {statusLabels[p.status]}
                     </span>
                   </td>
+                  {personaMode === 'staff' && <td><StaffProgressSummary project={p} /></td>}
                   <td className="cell-subtext">
                     {new Date(p.update_at).toLocaleDateString('th-TH')}
                   </td>
@@ -210,7 +213,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                       </button>
 
                       {/* Staff progress update button */}
-                      {personaMode === 'staff' && p.status === 'approve' && (
+                      {personaMode === 'staff' && (
                         <button
                           type="button"
                           className="btn-action-progress"
@@ -220,7 +223,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                           }}
                         >
                           <TrendingUpIcon size={13} />
-                          <span>อัปเดตงาน</span>
+                          <span>{p.status === 'approve' ? 'อัปเดตความคืบหน้า' : 'ดูรายงานความคืบหน้า'}</span>
                         </button>
                       )}
 
@@ -266,7 +269,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
               ))}
               {!visibleProjects.length && (
                 <tr>
-                  <td colSpan={7} className="text-center empty-cell">
+                  <td colSpan={personaMode === 'staff' ? 8 : 7} className="text-center empty-cell">
                     ไม่พบโครงการที่ค้นหา
                   </td>
                 </tr>

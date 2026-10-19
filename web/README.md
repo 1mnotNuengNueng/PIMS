@@ -81,6 +81,12 @@ Staff endpoints are `GET /api/projects/:id/reporting` and `PUT /api/projects/:id
 
 Run `node tests/project-lifecycle.integration.cjs` from `backend` with the server running to test the Q3-proposal/Q4-progress flow, revision, cancellation preservation and a linked replacement. Successful test writes are rolled back. The year calendar generator retains existing deadlines; for newly created years it supplies example deadlines 30 days after quarter end, which should be configured for institutional policy. A per-project single-year/multi-year limit is not yet modelled.
 
+## Staff progress reporting
+
+Staff can open **อัปเดตความคืบหน้า** from the department dashboard or **โครงการของสาขา**. Both lists display the latest report's fiscal period, cumulative progress and review status. The reporting form resumes a saved draft/returned report, or defaults to the quarter after the latest submitted report (including Q4 → Q1 of the next fiscal year).
+
+Choose the fiscal year and quarter, enter results, KPI results, cumulative progress (0–100%), spending for that quarter, problems and next steps. **บันทึกร่างรายงาน** keeps the form open; **ส่งรายงานรอพิจารณา** locks the report until returned by the reviewer. The history opens older reports for reading. Reporting starts after the proposal's initial quarter and project approval; cancelled/unapproved projects are read-only. Existing backend department ownership checks continue to apply. Run `node --test tests/*.test.mjs` in `frontend` to check period selection and display.
+
 ## Word export styling
 
 The Word export fills `backend/templates/project-proposal.docx`, converted from `Data/1. 690511(เปิดโครงการ)_โครงการกิจกรรม 5 ส. Aj.Taill-update-sj.doc`. It retains the actual source's styles, font definitions, numbering, footer, title rules, Letter page size and asymmetric margins. The 12 proposal sections use project data; original 5S expenses, names, agendas and participant lists are removed. The database currently stores a budget total/source, so exports show these and the total in Thai words; itemized expense and agenda data are not available. The approver name is blank.

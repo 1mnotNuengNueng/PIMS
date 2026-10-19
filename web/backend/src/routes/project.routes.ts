@@ -60,11 +60,24 @@ projectRouter.get('/', requireAuth, async (req: AuthedRequest, res, next) => {
         operating_budget: true,
         strategic_plan: true,
         user: { include: { major: true } },
+        quarterly_reports: {
+          take: 1,
+          orderBy: [{ fiscal_period: { fiscal_year: { year: 'desc' } } }, { fiscal_period: { quarter: 'desc' } }],
+          select: { id: true, status: true, progress_percent: true, budget_spent: true,
+            fiscal_period: { select: { quarter: true, fiscal_year: { select: { year: true } } } } },
+        },
       },
       orderBy: { update_at: 'desc' },
     });
 
-    res.json({ projects: projects.map((project) => serializeProject(project)) });
+    res.json({ projects: projects.map(({ quarterly_reports, ...project }) => {
+      const report = quarterly_reports[0];
+      return { ...serializeProject(project), latest_report: report ? {
+        id: report.id, status: report.status, progress_percent: Number(report.progress_percent),
+        budget_spent: Number(report.budget_spent), fiscal_year: report.fiscal_period.fiscal_year.year,
+        quarter: report.fiscal_period.quarter,
+      } : null };
+    }) });
   } catch (error) {
     next(error);
   }
