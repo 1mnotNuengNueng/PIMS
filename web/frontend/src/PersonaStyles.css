@@ -762,6 +762,10 @@
   z-index: 2;
 }
 
+.staff-dashboard-actions {
+  margin: 16px 0 24px;
+}
+
 .btn-hero-year {
   display: inline-flex;
   align-items: center;
@@ -833,6 +837,20 @@
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
   border-color: #cbd5e1;
 }
+
+.kpi-card-button {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.kpi-card-button:focus-visible {
+  outline: 2px solid #8f1730;
+  outline-offset: 2px;
+}
+
 
 .kpi-top-row {
   display: flex;
@@ -4010,4 +4028,38 @@
 .staff-report-history-item { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; width: 100%; text-align: left; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 8px; background: #fff; color: #334155; cursor: pointer; font: inherit; }
 .staff-report-history-item[aria-pressed="true"] { border-color: #8f1730; background: #fff1f2; }
 .staff-report-history-item:disabled { cursor: wait; opacity: .6; }
+
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.password-input-wrap input {
+  width: 100%;
+  padding-right: 38px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 4px;
+  transition: color 0.15s;
+}
+
+.password-toggle-btn:hover {
+  color: #0f172a;
+}
+
 

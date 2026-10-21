@@ -2,6 +2,8 @@ import React from 'react';
 import type { FormEvent } from 'react';
 import type { UnitAccount } from '../types';
 import { GearIcon, ShieldIcon, BuildingIcon } from '../components/Icons';
+import { PasswordInput } from '../components/PasswordInput';
+
 
 interface LoginPageProps {
   loginRole: 'admin' | 'staff';
@@ -12,8 +14,6 @@ interface LoginPageProps {
   setLoginPassword: (password: string) => void;
   error: string;
   setError: (err: string) => void;
-  message: string;
-  setMessage: (msg: string) => void;
   loading: boolean;
   units?: UnitAccount[];
   onLoginSubmit: (e: FormEvent<HTMLFormElement>) => void;
@@ -30,8 +30,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
   setLoginPassword,
   error,
   setError,
-  message,
-  setMessage,
   loading,
   units = [],
   onLoginSubmit,
@@ -118,13 +116,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({
               <button type="button" onClick={() => setError('')}>✕</button>
             </div>
           )}
-          {message && (
-            <div className="alert-banner alert-success" style={{ margin: '0 0 16px' }}>
-              <span>{message}</span>
-              <button type="button" onClick={() => setMessage('')}>✕</button>
-            </div>
-          )}
-
           {resetMode ? (
             <form onSubmit={submitReset} className="login-form-fields">
               <div className="reset-password-heading">
@@ -143,14 +134,14 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                   </label>
                   <label className="field-block">
                     <span className="field-label required">รหัสผ่านใหม่</span>
-                    <input required minLength={6} type="password" autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="อย่างน้อย 6 ตัวอักษร" />
+                    <PasswordInput required minLength={6} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="อย่างน้อย 6 ตัวอักษร" />
                   </label>
                 </>
               )}
               <button type="submit" className="btn-login-submit" disabled={loading}>
                 {loading ? 'กำลังดำเนินการ...' : otpRequested ? 'ยืนยัน OTP และตั้งรหัสผ่าน' : 'ขอรหัส OTP'}
               </button>
-              <button type="button" className="login-forgot-link reset-back-link" onClick={() => { setResetMode(false); setOtpRequested(false); setError(''); setMessage(''); }}>
+              <button type="button" className="login-forgot-link reset-back-link" onClick={() => { setResetMode(false); setOtpRequested(false); setError(''); }}>
                 กลับไปหน้าเข้าสู่ระบบ
               </button>
             </form>
@@ -163,13 +154,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({
                 </label>
                 <label className="field-block">
                   <span className="field-label required">รหัสผ่าน</span>
-                  <input required type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="กรอกรหัสผ่าน" />
+                  <PasswordInput required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="กรอกรหัสผ่าน" />
                 </label>
                 <button type="submit" className="btn-login-submit" disabled={loading}>
                   {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ (Sign In)'}
                 </button>
               </form>
-              <button type="button" className="login-forgot-link" onClick={() => { setResetMode(true); setError(''); setMessage(''); }}>
+              <button type="button" className="login-forgot-link" onClick={() => { setResetMode(true); setError(''); }}>
                 ลืมรหัสผ่าน?
               </button>
             </>

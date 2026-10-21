@@ -134,7 +134,6 @@ export type ProjectForm = {
   id?: number;
   projectName: string;
   strategicPlanId: string;
-  operatingBudgetId: string;
   department: string;
   targetGroup?: string;
   owner: string;
@@ -188,7 +187,6 @@ export const emptyForm: ProjectForm = {
   quarter: '1',
   projectName: '',
   strategicPlanId: '',
-  operatingBudgetId: '',
   department: '',
   targetGroup: '',
   owner: '',

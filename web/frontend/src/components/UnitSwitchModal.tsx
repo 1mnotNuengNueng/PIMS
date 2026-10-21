@@ -2,6 +2,8 @@ import React from 'react';
 import type { FormEvent } from 'react';
 import type { User, UnitAccount, RefItem } from '../types';
 import { BuildingIcon } from './Icons';
+import { PasswordInput } from './PasswordInput';
+
 
 interface UnitSwitchModalProps {
   show: boolean;
@@ -110,14 +112,14 @@ export const UnitSwitchModal: React.FC<UnitSwitchModalProps> = ({
 
           <label className="field-block">
             <span>รหัสผ่าน</span>
-            <input
+            <PasswordInput
               required
-              type="password"
               value={authForm.password}
               onChange={(e) => setAuthForm((curr) => ({ ...curr, password: e.target.value }))}
               placeholder="รหัสผ่าน (ค่าเริ่มต้น: pims2026)"
             />
           </label>
+
 
           {authMode === 'register' && (
             <label className="field-block">

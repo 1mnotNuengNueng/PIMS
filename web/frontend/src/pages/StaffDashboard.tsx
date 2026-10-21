@@ -3,6 +3,7 @@ import type { User, Project } from '../types';
 import { statusLabels, statusColors } from '../types';
 import { formatMoney } from '../utils/format';
 import { StaffProgressSummary } from '../components/StaffProgressSummary';
+import { currentFiscalYear } from '../utils/fiscalPeriod';
 import {
   FileTextIcon,
   FolderIcon,
@@ -20,7 +21,8 @@ interface StaffDashboardProps {
   currentDepartmentProjects: Project[];
   branchResubmitCount: number;
   setActiveTab: (tab: string) => void;
-  loadDepartmentSample: () => void;
+  onOpenProjectsByStatus: (status: 'approve' | 'resubmit') => void;
+  openNewProposal: () => void;
   editProject: (p: Project) => void;
   setWordPreviewProject: (p: Project) => void;
   setProgressModalProject: (p: Project) => void;
@@ -31,12 +33,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
   currentDepartmentProjects,
   branchResubmitCount,
   setActiveTab,
-  loadDepartmentSample,
+  onOpenProjectsByStatus,
+  openNewProposal,
   editProject,
   setWordPreviewProject,
   setProgressModalProject,
 }) => {
-  const totalBranchBudget = currentDepartmentProjects.reduce((sum, p) => sum + (p.budget_amount || 0), 0);
+  const currentYearProjects = currentDepartmentProjects.filter((project) => project.fiscal_year === currentFiscalYear());
+  const approvedProjects = currentDepartmentProjects.filter((project) => project.status === 'approve');
+  const resubmitProjects = currentDepartmentProjects.filter((project) => project.status === 'resubmit');
+  const showDashboardProjectDetails = false;
   const approvedBranchBudget = currentDepartmentProjects
     .filter((p) => p.status === 'approve')
     .reduce((sum, p) => sum + (p.budget_amount || 0), 0);
@@ -54,29 +60,28 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </p>
         </div>
 
-        <div className="hero-cta-actions">
-          <button
-            type="button"
-            className="btn-hero-year"
-            onClick={() => {
-              setActiveTab('submit_form');
-              loadDepartmentSample();
-            }}
-            style={{ background: '#8F1730', color: '#ffffff' }}
-          >
-            <FileTextIcon size={15} />
-            <span>ยื่นแบบเสนอโครงการใหม่</span>
-            <ArrowRightIcon size={14} />
-          </button>
-          <button
-            type="button"
-            className="btn-hero-report"
-            onClick={() => setActiveTab('my_projects')}
-          >
-            <FolderIcon size={15} />
-            <span>โครงการของสาขา ({currentDepartmentProjects.length})</span>
-          </button>
-        </div>
+      </div>
+
+      <div className="hero-cta-actions staff-dashboard-actions">
+        <button
+          type="button"
+          className="btn-hero-year"
+          onClick={openNewProposal}
+          style={{ background: '#8F1730', color: '#ffffff' }}
+        >
+          <FileTextIcon size={15} />
+          <span>ยื่นแบบเสนอโครงการใหม่</span>
+          <ArrowRightIcon size={14} />
+        </button>
+
+        <button
+          type="button"
+          className="btn-hero-report"
+          onClick={() => setActiveTab('my_projects')}
+        >
+          <FolderIcon size={15} />
+          <span>โครงการของสาขา ({currentDepartmentProjects.length})</span>
+        </button>
       </div>
 
       {/* URGENT RESUBMIT ALERT BANNER (If any project was sent back by OD) */}
@@ -129,7 +134,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
         </div>
 
         {/* Card 2: ผ่านการอนุมัติแล้ว */}
-        <div className="kpi-card-box" onClick={() => setActiveTab('my_projects')}>
+        <button
+          type="button"
+          className="kpi-card-box kpi-card-button"
+          onClick={() => onOpenProjectsByStatus('approve')}
+        >
           <div className="kpi-top-row">
             <div className="kpi-icon-container green">
               <CheckCircleIcon size={18} />
@@ -138,7 +147,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
           <div className="kpi-value-row">
             <strong className="kpi-big-number">
-              {currentDepartmentProjects.filter((p) => p.status === 'approve').length}
+              {approvedProjects.length}
             </strong>
             <span className="kpi-subtitle-note">พร้อมดำเนินงานและเบิกจ่าย</span>
           </div>
@@ -146,10 +155,14 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             <TrendingUpIcon size={14} />
             <span>อนุมัติโดยคณะเรียบร้อย</span>
           </div>
-        </div>
+        </button>
 
         {/* Card 3: ต้องปรับปรุงแก้ไข */}
-        <div className="kpi-card-box" onClick={() => setActiveTab('my_projects')}>
+        <button
+          type="button"
+          className="kpi-card-box kpi-card-button"
+          onClick={() => onOpenProjectsByStatus('resubmit')}
+        >
           <div className="kpi-top-row">
             <div className="kpi-icon-container amber">
               <ClockIcon size={18} />
@@ -170,7 +183,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               <span>✓ เอกสารครบถ้วน</span>
             )}
           </div>
-        </div>
+        </button>
 
         {/* Card 4: งบประมาณที่สาขาขอรับ */}
         <div className="kpi-card-box">
@@ -182,27 +195,58 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
           </div>
           <div className="kpi-value-row">
             <strong className="kpi-big-number">
-              {formatMoney(totalBranchBudget)}
+              {formatMoney(approvedBranchBudget)}
             </strong>
             <span className="kpi-subtitle-note">
-              บาท (อนุมัติแล้ว: {formatMoney(approvedBranchBudget)} บ.)
-            </span>
-          </div>
-          <div className="budget-progress-line">
-            <div className="budget-track">
-              <div
-                className="budget-fill"
-                style={{
-                  width: `${totalBranchBudget > 0 ? Math.round((approvedBranchBudget / totalBranchBudget) * 100) : 0}%`,
-                }}
-              />
-            </div>
-            <span className="budget-percent-label">
-              {totalBranchBudget > 0 ? ((approvedBranchBudget / totalBranchBudget) * 100).toFixed(1) : '0.0'}%
+              บาท (เฉพาะโครงการที่อนุมัติแล้ว)
             </span>
           </div>
         </div>
       </section>
+
+      {showDashboardProjectDetails && (
+        <section id="approved-projects-accordion" className="analytics-card staff-project-accordion">
+          <div className="analytics-card-header">
+            <h2>โครงการที่ผ่านการอนุมัติแล้ว</h2>
+            <span>{approvedProjects.length} โครงการ</span>
+          </div>
+          <div className="table-responsive">
+            <table className="modern-table">
+              <thead><tr><th>ชื่อโครงการ</th><th>ผู้รับผิดชอบ</th><th>งบประมาณ</th><th>การดำเนินการ</th></tr></thead>
+              <tbody>{approvedProjects.map((project) => (
+                <tr key={project.id}>
+                  <td><strong>{project.name}</strong></td>
+                  <td>{project.responsible_person}</td>
+                  <td>{formatMoney(project.budget_amount)} บาท</td>
+                  <td><button type="button" className="btn-action-edit" onClick={() => editProject(project)}><EditIcon size={13} /><span>แก้ไข</span></button></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {showDashboardProjectDetails && (
+        <section id="resubmit-projects-accordion" className="analytics-card staff-project-accordion">
+          <div className="analytics-card-header">
+            <h2>โครงการที่ต้องปรับปรุงแก้ไข</h2>
+            <span>{resubmitProjects.length} โครงการ</span>
+          </div>
+          <div className="table-responsive">
+            <table className="modern-table">
+              <thead><tr><th>ชื่อโครงการ</th><th>ผู้รับผิดชอบ</th><th>ข้อเสนอแนะ</th><th>การดำเนินการ</th></tr></thead>
+              <tbody>{resubmitProjects.map((project) => (
+                <tr key={project.id}>
+                  <td><strong>{project.name}</strong></td>
+                  <td>{project.responsible_person}</td>
+                  <td>{project.review_comment || '-'}</td>
+                  <td><button type="button" className="btn-action-edit" onClick={() => editProject(project)}><EditIcon size={13} /><span>แก้ไข</span></button></td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* ACTION REQUIRED & MY PROJECTS QUICK LIST */}
       <div className="analytics-card" style={{ padding: '24px 28px', marginTop: '16px' }}>
@@ -223,7 +267,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
             className="link-analytics-detail"
             onClick={() => setActiveTab('my_projects')}
           >
-            <span>ดูทั้งหมด ({currentDepartmentProjects.length})</span>
+            <span>ดูทั้งหมด ({currentYearProjects.length})</span>
             <ArrowRightIcon size={13} />
           </button>
         </div>
@@ -242,7 +286,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
               </tr>
             </thead>
             <tbody>
-              {currentDepartmentProjects.map((p) => (
+              {currentYearProjects.map((p) => (
                 <tr key={p.id}>
                   <td>
                     <strong>{p.name}</strong>
@@ -285,7 +329,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <TrendingUpIcon size={13} />
                         <span>รายงานความคืบหน้า</span>
                       </button>}
-                      {(p.status === 'draft' || p.status === 'resubmit' || p.status === 'approve') && <button
+                      {(p.status === 'resubmit' || p.status === 'approve') && <button
                         type="button"
                         className="btn-action-edit"
                         onClick={() => editProject(p)}
@@ -297,7 +341,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                   </td>
                 </tr>
               ))}
-              {!currentDepartmentProjects.length && (
+              {!currentYearProjects.length && (
                 <tr>
                   <td colSpan={7} className="text-center empty-cell" style={{ padding: '36px', color: '#64748B' }}>
                     สาขาวิชายังไม่ได้ยื่นแบบเสนอโครงการ

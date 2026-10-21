@@ -69,8 +69,17 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
   const [year, setYear] = useState('all');
   const [quarter, setQuarter] = useState('all');
   const visibleProjects = filteredProjects.filter((project) => matchesPeriod(project, year, quarter));
-  const statusOrder: Project['status'][] = ['resubmit', 'submitted', 'draft', 'approve', 'cancel'];
+  const statusOrder: Project['status'][] = personaMode === 'staff'
+    ? ['resubmit', 'submitted', 'approve', 'cancel']
+    : ['resubmit', 'submitted', 'draft', 'approve', 'cancel'];
   const groups = statusOrder.map((status) => ({ status, projects: visibleProjects.filter((project) => project.status === status) })).filter((group) => group.projects.length > 0);
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setStrategyFilter('all');
+    setYear('all');
+    setQuarter('all');
+  };
   return (
     <div className="view-container animate-fade">
       <div className="projects-header-row">
@@ -93,7 +102,6 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
             setForm({
               ...emptyForm,
               strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
-              operatingBudgetId: String(metadata.operatingBudgets[0]?.id || ''),
               department: user?.major || '',
             });
             setActiveTab('submit_form');
@@ -123,7 +131,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
             </button>
           )}
         </div>
-
+        <button type="button" className="btn-clear-search" onClick={clearFilters}>ล้างตัวกรอง</button>
       </div>
 
       <PeriodFilter projects={filteredProjects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter}>
@@ -136,7 +144,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
             <option value="all">ทุกสถานะ</option>
             <option value="approve">อนุมัติแล้ว</option>
             <option value="resubmit">ส่งกลับแก้ไข</option>
-            <option value="draft">ฉบับร่าง</option>
+            {personaMode !== 'staff' && <option value="draft">ฉบับร่าง</option>}
             <option value="submitted">ส่งข้อเสนอแล้ว / รอพิจารณา</option>
             <option value="cancel">ยกเลิก</option>
           </select>
@@ -222,7 +230,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                         </button>
                       )}
 
-                      {(p.status === 'draft' || p.status === 'resubmit' || p.status === 'approve') && <button
+                      {(p.status === 'resubmit' || p.status === 'approve' || (personaMode !== 'staff' && p.status === 'draft')) && <button
                         type="button"
                         className="btn-action-edit"
                         onClick={() => editProject(p)}

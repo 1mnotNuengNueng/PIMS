@@ -60,7 +60,7 @@ function projectPayload(form: ProjectForm, submitStatus: 'draft' | 'submitted') 
       objective: form.objectives.filter(Boolean).join('\n'),
       target_group: form.targetGroup || '',
       implementation_procedure: form.methods.filter(Boolean).join('\n'),
-      duration_of_operations: `${form.startDate} - ${form.endDate}`,
+      duration_of_operations: form.startDate || form.endDate ? `${form.startDate} - ${form.endDate}` : '',
       location: form.location,
       evaluation: form.kpi,
       expected_outcomes: form.expectedOutcomes || form.ownerRole,
@@ -75,7 +75,6 @@ function projectPayload(form: ProjectForm, submitStatus: 'draft' | 'submitted') 
         : form.operationPlan || form.methods.filter(Boolean).join('\n'),
       progress_risk: form.progressRisk,
       review_comment: form.reviewComment || '',
-      operating_budget_id: Number(form.operatingBudgetId),
       status: submitStatus,
     };
 }
@@ -124,7 +123,6 @@ function App() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [strategyFilter, setStrategyFilter] = useState<string>('all');
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -168,6 +166,11 @@ function App() {
     );
   }, [personaMode, user, projects]);
 
+  const visibleDepartmentProjects = useMemo(
+    () => currentDepartmentProjects.filter((project) => project.status !== 'draft'),
+    [currentDepartmentProjects],
+  );
+
   // Count pending review for admin
   const pendingReviewCount = useMemo(() => {
     return projects.filter((p) => p.status === 'submitted' || p.cancellation_request_status === 'pending').length;
@@ -175,8 +178,8 @@ function App() {
 
   // Count urgent revisions for current branch
   const branchResubmitCount = useMemo(() => {
-    return currentDepartmentProjects.filter((p) => p.status === 'resubmit').length;
-  }, [currentDepartmentProjects]);
+    return visibleDepartmentProjects.filter((p) => p.status === 'resubmit').length;
+  }, [visibleDepartmentProjects]);
 
   async function loadAppData(activeToken = token) {
     if (!activeToken) {
@@ -227,8 +230,6 @@ function App() {
       setForm((current) => ({
         ...current,
         strategicPlanId: current.strategicPlanId || String(refs.strategicPlans[0]?.id || ''),
-        operatingBudgetId:
-          current.operatingBudgetId || String(refs.operatingBudgets[0]?.id || ''),
         department: me?.role === 'staff' ? me.major : current.department || me?.major || '',
       }));
     } catch (cause) {
@@ -275,14 +276,12 @@ function App() {
     setToken('');
     setUser(null);
     setActiveTab('dashboard');
-    setMessage('ออกจากระบบเรียบร้อยแล้ว');
   }
 
   async function handleLoginSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
     setError('');
-    setMessage('');
 
     try {
       const data = await request<{ token: string; user: User }>('/api/auth/login', {
@@ -297,9 +296,6 @@ function App() {
       const isAdm = data.user.role === 'admin' || data.user.role === 'super_admin';
       setPersonaMode(isAdm ? 'admin' : 'staff');
       setActiveTab('dashboard');
-      setMessage(
-        `เข้าสู่ระบบสำเร็จ: ${data.user.major} (${isAdm ? 'ฝ่ายพัฒนาองค์กร' : 'สาขาวิชา'})`,
-      );
       await loadAppData(data.token);
     } catch (cause) {
       setError(
@@ -315,14 +311,12 @@ function App() {
   async function handleRequestPasswordReset(email: string): Promise<boolean> {
     setLoading(true);
     setError('');
-    setMessage('');
     try {
-      const data = await request<{ message: string }>('/api/auth/forgot-password', {
+      await request<{ message: string }>('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      setMessage(data.message);
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'ขอรหัส OTP ไม่สำเร็จ');
@@ -335,15 +329,13 @@ function App() {
   async function handleResetPassword(email: string, otp: string, password: string): Promise<boolean> {
     setLoading(true);
     setError('');
-    setMessage('');
     try {
-      const data = await request<{ message: string }>('/api/auth/reset-password', {
+      await request<{ message: string }>('/api/auth/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp, password }),
       });
       setLoginEmail(email);
-      setMessage(data.message);
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ');
@@ -356,7 +348,6 @@ function App() {
   async function handleFastLogin(targetEmail: string) {
     setLoading(true);
     setError('');
-    setMessage('');
 
     try {
       const data = await request<{ token: string; user: User }>('/api/auth/switch', {
@@ -371,9 +362,6 @@ function App() {
       const isAdm = data.user.role === 'admin' || data.user.role === 'super_admin';
       setPersonaMode(isAdm ? 'admin' : 'staff');
       setActiveTab('dashboard');
-      setMessage(
-        `เข้าสู่ระบบสำเร็จ: ${data.user.major} (${isAdm ? 'ฝ่ายพัฒนาองค์กร' : 'สาขาวิชา'})`,
-      );
       await loadAppData(data.token);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'เข้าสู่ระบบไม่สำเร็จ');
@@ -403,7 +391,6 @@ function App() {
       setPersonaMode(
         data.user.role === 'admin' || data.user.role === 'super_admin' ? 'admin' : 'staff',
       );
-      setMessage(authMode === 'login' ? 'เข้าสู่ระบบสำเร็จ' : 'สมัครใช้งานสำเร็จ');
       setShowAuthModal(false);
       await loadAppData(data.token);
     } catch (cause) {
@@ -437,7 +424,6 @@ function App() {
       });
       const data = await request<{ users: User[] }>('/api/users', { headers: authHeaders });
       setManagedUsers(data.users);
-      setMessage('สร้างบัญชีผู้ใช้เรียบร้อยแล้ว');
       return true;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'สร้างบัญชีผู้ใช้ไม่สำเร็จ');
@@ -447,101 +433,77 @@ function App() {
     }
   }
 
-  // Load sample template for department staff
-  function loadDepartmentSample() {
-    const deptName = user?.major || 'ภาควิชาวิศวกรรมคอมพิวเตอร์';
+  // Open blank proposal form for department staff
+  function openNewProposal() {
     setForm({
-      projectName: `โครงการพัฒนาทักษะวิศวกรรมและการบูรณาการองค์ความรู้ (${deptName})`,
-      ...(form.replacementForId ? { replacementForId: form.replacementForId } : {}),
-      fiscalYear: form.fiscalYear || '2570',
-      quarter: form.quarter || '1',
-      strategicPlanId: String(metadata.strategicPlans[0]?.id || 1),
-      operatingBudgetId: String(metadata.operatingBudgets[1]?.id || 2),
-      department: deptName,
-      owner: `หัวหน้าโครงการ ประจำ${deptName}`,
-      ownerRole: 'อาจารย์ประจำภาควิชา / ผู้รับผิดชอบโครงการ',
-      status: 'draft',
-      startDate: '2569-11-01',
-      endDate: '2570-04-30',
-      location: 'คณะวิศวกรรมศาสตร์ กำแพงแสน มหาวิทยาลัยเกษตรศาสตร์',
-      rationale:
-        'เพื่อตอบสนองต่อแผนปฏิบัติการประจำปีของคณะวิศวกรรมศาสตร์ ในการยกระดับสมรรถนะนิสิต คณาจารย์ และการบริการวิชาการสู่อุตสาหกรรมเป้าหมาย',
-      objectives: [
-        'เพื่อพัฒนาศักยภาพนิสิตให้มีทักษะสอดคล้องกับความต้องการของภาคอุตสาหกรรม',
-        'เพื่อสร้างผลงานนวัตกรรมและโครงงานสหกิจศึกษาที่นำไปใช้ประโยชน์ได้จริง',
-        'เพื่อส่งเสริมเครือข่ายความร่วมมือทางวิชาการและวิจัยร่วมกับองค์กรภายนอก',
-      ],
-      methods: [
-        'สำรวจความต้องการและจัดทำแผนการดำเนินงานโครงการ',
-        'จัดอบรมเชิงปฏิบัติการและสัมมนาแลกเปลี่ยนเรียนรู้กับผู้เชี่ยวชาญ',
-        'ติดตามการดำเนินโครงงานและประเมินผลสัมฤทธิ์ตามตัวชี้วัด',
-        'จัดทำรายงานสรุปผลการดำเนินงานและข้อเสนอแนะในการพัฒนาอย่างต่อเนื่อง',
-      ],
-      kpi: 'ร้อยละความพึงพอใจของผู้เข้าร่วมโครงการไม่น้อยกว่าร้อยละ 85',
-      kpiTarget: 'จำนวนผู้เข้าร่วมไม่น้อยกว่า 60 คน และผ่านเกณฑ์ประเมิน 100%',
-      strategicGoal: 'สร้างผู้เชี่ยวชาญสหวิศวกรรมสู่สากล',
-      strategicKpi: 'ร้อยละของนิสิตที่มีสมรรถนะตามมาตรฐานวิชาชีพ',
-      budgetAmount: '150000',
-      operationPlan: '',
-      operationStartDate: '2026-11-01',
-      operationEndDate: '2027-04-30',
-      progressRisk:
-        'ต้องติดตามการจัดสรรตารางกิจกรรมไม่ให้กระทบต่อตารางการเรียนการสอนปกติ',
-      expectedOutcomes:
-        'นิสิตมีทักษะวิชาชีพสูงขึ้น และภาควิชามีผลงานเชิงประจักษ์ตามแผนยุทธศาสตร์',
-      reviewComment: '',
+      ...emptyForm,
+      strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
+      department: user?.major || '',
     });
-    setMessage(`โหลดตัวอย่างแบบเสนอโครงการของ "${deptName}" เรียบร้อยแล้ว`);
+    setActiveStep(0);
+    setActiveTab('submit_form');
   }
 
-  async function autoSaveProject(draft: ProjectForm) {
-    const payload = projectPayload(draft, 'draft');
-    // Saving edits must preserve the review status until the user submits again.
-    const { status: _status, ...edits } = payload;
-    const result = await request<{ project: Project }>(draft.id ? `/api/projects/${draft.id}` : '/api/projects', {
-      method: draft.id ? 'PATCH' : 'POST',
-      headers: authHeaders,
-      body: JSON.stringify(draft.id ? edits : payload),
-    });
-    setProjects((current) => [result.project, ...current.filter((project) => project.id !== result.project.id)]);
-    return result.project;
+  function openStaffProjectsByStatus(status: 'approve' | 'resubmit') {
+    setSearch('');
+    setStrategyFilter('all');
+    setStatusFilter(status);
+    setActiveTab('my_projects');
   }
 
   // Handle project submit
+
   async function handleProjectSubmit(submitStatus: 'draft' | 'submitted') {
+    if (loading) return;
     setLoading(true);
     setError('');
-    setMessage('');
 
     const hasOperationStart = Boolean(form.operationStartDate);
     const validProjectDate = (value: string) => {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
       const [year, month, day] = value.split('-').map(Number);
       const date = new Date(Date.UTC(year - 543, month - 1, day));
-      return date.getUTCFullYear() === year - 543 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
-        && value >= `${Number(form.fiscalYear) - 1}-10-01` && value <= `${form.fiscalYear}-09-30`;
+      return date.getUTCFullYear() === year - 543 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
     };
-    if ([form.startDate, form.endDate].some((value) => value && !validProjectDate(value)) ||
-      (submitStatus === 'submitted' && (!form.startDate || !form.endDate))) {
-      setError('กรุณาเลือกวันเริ่มต้นและวันสิ้นสุดให้อยู่ในปีงบประมาณของโครงการ');
+    if (submitStatus === 'submitted' && (!form.startDate || !form.endDate)) {
+      setError('กรุณาระบุวันเริ่มต้นและวันสิ้นสุดดำเนินงาน');
       setActiveStep(0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setLoading(false);
       return;
     }
-    if (form.startDate && form.endDate && form.endDate < form.startDate) {
-      setError('วันสิ้นสุดดำเนินงานต้องไม่อยู่ก่อนวันเริ่มต้น');
+    if ([form.startDate, form.endDate].some((value) => value && !validProjectDate(value))) {
+      setError('รูปแบบวันที่ไม่ถูกต้อง');
       setActiveStep(0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setLoading(false);
+      return;
+    }
+    if (form.startDate && form.endDate && form.endDate <= form.startDate) {
+      setError('วันสิ้นสุดดำเนินงานต้องอยู่หลังวันเริ่มต้นดำเนินงาน');
+      setActiveStep(0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      setLoading(false);
+      return;
+    }
+    const budgetAmount = Number(form.budgetAmount);
+    if (!Number.isFinite(budgetAmount) || budgetAmount < 0) {
+      setError('วงเงินงบประมาณรวมต้องเป็นตัวเลขศูนย์หรือมากกว่า');
+      setActiveStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setLoading(false);
       return;
     }
     const hasOperationEnd = Boolean(form.operationEndDate);
     if (hasOperationStart !== hasOperationEnd) {
       setError('กรุณาเลือกทั้งวันเริ่มต้นและวันสิ้นสุดของแผนการดำเนินการ');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setLoading(false);
       return;
     }
     if (hasOperationStart && form.operationEndDate < form.operationStartDate) {
       setError('วันสิ้นสุดต้องไม่อยู่ก่อนวันเริ่มต้น');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setLoading(false);
       return;
     }
@@ -549,6 +511,7 @@ function App() {
     if (!form.fiscalYear || !form.quarter) {
       setError('กรุณาเลือกปีงบประมาณและไตรมาสที่จะดำเนินโครงการ');
       setActiveStep(0);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       setLoading(false);
       return;
     }
@@ -557,35 +520,24 @@ function App() {
     const { status: _status, ...approvedEdits } = fullPayload;
     const payload = form.id && form.status === 'approve' ? approvedEdits : fullPayload;
 
-try {
+    try {
       if (form.id) {
         await request(`/api/projects/${form.id}`, {
           method: 'PATCH',
           headers: authHeaders,
           body: JSON.stringify(payload),
         });
-        setMessage(
-          form.status === 'approve' ? 'แก้ไขโครงการเรียบร้อยแล้ว' : submitStatus === 'submitted'
-            ? 'ส่งโครงการเพื่อรอพิจารณาอนุมัติเรียบร้อยแล้ว'
-            : 'บันทึกฉบับร่างโครงการเรียบร้อยแล้ว',
-        );
       } else {
         await request('/api/projects', {
           method: 'POST',
           headers: authHeaders,
           body: JSON.stringify(payload),
         });
-        setMessage(
-          submitStatus === 'submitted'
-            ? 'ยื่นแบบเสนอโครงการเพื่อขออนุมัติเรียบร้อยแล้ว'
-            : 'บันทึกโครงการฉบับร่างเรียบร้อยแล้ว',
-        );
       }
 
       setForm({
         ...emptyForm,
         strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
-        operatingBudgetId: String(metadata.operatingBudgets[0]?.id || ''),
         department: user?.major || '',
       });
       setActiveStep(0);
@@ -593,6 +545,7 @@ try {
       setActiveTab(personaMode === 'admin' ? 'projects' : 'my_projects');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'บันทึกข้อมูลไม่สำเร็จ');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -611,7 +564,6 @@ try {
       quarter: project.quarter ? String(project.quarter) : '',
       projectName: project.name,
       strategicPlanId: String(project.strategic_plan_id),
-      operatingBudgetId: String(project.operating_budget_id),
       department: (project.department?.name || project.user?.major?.name) || user?.major || '',
       targetGroup: project.target_group,
       owner: project.responsible_person,
@@ -658,7 +610,6 @@ try {
     await refreshProjects();
     setDetailRefreshKey(value => value + 1);
     setCancellationProject(null);
-    setMessage(action === 'request' ? 'ส่งคำขอยกเลิกแล้ว รอแอดมินพิจารณา' : action === 'approve' ? 'อนุมัติการยกเลิกโครงการแล้ว' : 'ไม่อนุมัติการยกเลิก โครงการยังคงสถานะเดิม');
   }
   // Handle proposal review by admin.
   async function submitReview() {
@@ -676,13 +627,6 @@ try {
         }),
       });
 
-      setMessage(
-        reviewAction === 'approve'
-          ? `อนุมัติโครงการ "${reviewModalProject.name}" เรียบร้อยแล้ว`
-          : reviewAction === 'resubmit'
-            ? `ส่งกลับโครงการ "${reviewModalProject.name}" เพื่อให้สาขาแก้ไขเรียบร้อยแล้ว`
-            : `ยกเลิกโครงการเรียบร้อยแล้ว`,
-      );
 
       setReviewModalProject(null);
       setDetailRefreshKey((value) => value + 1);
@@ -698,7 +642,6 @@ try {
   // Quarterly modal saves the selected period, then refreshes the parent lists.
   async function submitProgressUpdate(status: 'draft' | 'submitted') {
     if (status === 'submitted') setProgressModalProject(null);
-    setMessage(status === 'draft' ? 'บันทึกร่างรายงานความคืบหน้าแล้ว' : 'ส่งรายงานความคืบหน้ารอพิจารณาแล้ว');
     await refreshProjects();
   }
 
@@ -713,7 +656,7 @@ try {
     const quarter = ((period - 1) % 4) + 1;
     setForm({ ...emptyForm, replacementForId: project.id, fiscalYear: String(year), quarter: String(quarter),
       department: project.department?.name || project.user?.major?.name || user?.major || '',
-      strategicPlanId: String(project.strategic_plan_id), operatingBudgetId: String(project.operating_budget_id) });
+      strategicPlanId: String(project.strategic_plan_id) });
     setActiveStep(0);
     setActiveTab('submit_form');
     window.location.hash = '';
@@ -722,7 +665,7 @@ try {
 
   // Filtered projects
   const filteredProjects = useMemo(() => {
-    const sourceList = personaMode === 'staff' ? currentDepartmentProjects : projects;
+    const sourceList = personaMode === 'staff' ? visibleDepartmentProjects : projects;
     return sourceList.filter((p) => {
       const matchSearch =
         !search.trim() ||
@@ -737,7 +680,7 @@ try {
 
       return matchSearch && matchStatus && matchStrategy;
     });
-  }, [personaMode, currentDepartmentProjects, projects, search, statusFilter, strategyFilter]);
+  }, [personaMode, visibleDepartmentProjects, projects, search, statusFilter, strategyFilter]);
 
   // --------------------------------------------------------------------------
   // 1. DEDICATED AUTHENTICATION SCREEN (WHEN NOT LOGGED IN)
@@ -753,8 +696,6 @@ try {
         setLoginPassword={setLoginPassword}
         error={error}
         setError={setError}
-        message={message}
-        setMessage={setMessage}
         loading={loading}
         units={units}
         onLoginSubmit={handleLoginSubmit}
@@ -777,7 +718,7 @@ try {
         setActiveTab={(tab) => { window.location.hash = ''; setActiveTab(tab); }}
         pendingReviewCount={pendingReviewCount}
         projectsCount={projects.length}
-        branchProjectsCount={currentDepartmentProjects.length}
+        branchProjectsCount={visibleDepartmentProjects.length}
         branchResubmitCount={branchResubmitCount}
         onLogout={handleLogout}
       />
@@ -795,12 +736,6 @@ try {
         />
 
         {/* FEEDBACK BANNERS */}
-        {message && (
-          <div className="alert-banner alert-success animate-fade">
-            <span>{message}</span>
-            <button type="button" onClick={() => setMessage('')}>✕</button>
-          </div>
-        )}
         {error && (
           <div className="alert-banner alert-danger animate-fade">
             <span>{error}</span>
@@ -836,10 +771,11 @@ try {
         {activeTab === 'dashboard' && personaMode === 'staff' && (
           <StaffDashboard
             user={user}
-            currentDepartmentProjects={currentDepartmentProjects}
+            currentDepartmentProjects={visibleDepartmentProjects}
             branchResubmitCount={branchResubmitCount}
             setActiveTab={setActiveTab}
-            loadDepartmentSample={loadDepartmentSample}
+            onOpenProjectsByStatus={openStaffProjectsByStatus}
+            openNewProposal={openNewProposal}
             editProject={editProject}
             setWordPreviewProject={setWordPreviewProject}
             setProgressModalProject={setProgressModalProject}
@@ -884,10 +820,10 @@ try {
             activeStep={activeStep}
             setActiveStep={setActiveStep}
             handleProjectSubmit={handleProjectSubmit}
-            onAutoSave={autoSaveProject}
             loading={loading}
           />
         )}
+
 
         {/* VIEW 6: PROJECTS REGISTRY (FACULTY OR BRANCH) */}
         {(activeTab === 'projects' || activeTab === 'my_projects') && (

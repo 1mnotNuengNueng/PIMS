@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import type { FormEvent } from 'react';
 import type { RefItem, User } from '../types';
 import { PlusIcon, UserIcon } from '../components/Icons';
+import { PasswordInput } from '../components/PasswordInput';
+
 
 interface UserManagementPageProps {
   users: User[];
@@ -61,8 +63,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
           </label>
           <label className="field-block">
             <span className="field-label required">รหัสผ่าน</span>
-            <input
-              type="password"
+            <PasswordInput
               required
               minLength={6}
               autoComplete="new-password"
@@ -71,6 +72,7 @@ export const UserManagementPage: React.FC<UserManagementPageProps> = ({
               placeholder="อย่างน้อย 6 ตัวอักษร"
             />
           </label>
+
           <label className="field-block">
             <span className="field-label required">หน่วยงาน</span>
             <select required value={majorId} onChange={(event) => setMajorId(event.target.value)}>

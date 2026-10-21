@@ -1,8 +1,8 @@
 import React from 'react';
-import type { User, ProjectForm, Metadata, Project } from '../types';
+import type { User, ProjectForm, Metadata } from '../types';
 import { steps, emptyForm } from '../types';
 import { formatMoney } from '../utils/format';
-import { quarters, currentFiscalYear, fiscalPeriodLabel } from '../utils/fiscalPeriod';
+import { quarters, currentFiscalYear } from '../utils/fiscalPeriod';
 import {
   AlertCircleIcon,
   PlusIcon,
@@ -29,7 +29,6 @@ interface ProposalFormPageProps {
   activeStep: number;
   setActiveStep: (step: number | ((prev: number) => number)) => void;
   handleProjectSubmit: (targetStatus: 'draft' | 'submitted') => void;
-  onAutoSave: (draft: ProjectForm) => Promise<Project>;
   loading: boolean;
 }
 
@@ -41,7 +40,6 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
   activeStep,
   setActiveStep,
   handleProjectSubmit,
-  onAutoSave,
   loading,
 }) => {
   const formElement = React.useRef<HTMLFormElement>(null);
@@ -61,12 +59,11 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
   }, [activeStep, missingField]);
 
   const submitProposal = () => {
-    if (loading || autoSaving) return;
+    if (loading) return;
     const checks: Array<{ field: keyof ProjectForm; label: string; step: number }> = [
       { field: 'quarter', label: 'ไตรมาสเริ่มต้น / ยื่นข้อเสนอ', step: 0 },
       { field: 'projectName', label: 'ชื่อโครงการ / กิจกรรม', step: 0 },
       { field: 'strategicPlanId', label: 'ความสอดคล้องกับแผนยุทธศาสตร์คณะ', step: 0 },
-      { field: 'operatingBudgetId', label: 'แหล่งงบประมาณ', step: 0 },
       { field: 'department', label: 'หน่วยงาน / ภาควิชาที่รับผิดชอบ', step: 0 },
       { field: 'owner', label: 'ผู้รับผิดชอบโครงการ', step: 0 },
       { field: 'startDate', label: 'วันเริ่มต้นดำเนินงาน', step: 0 },
@@ -87,45 +84,39 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
       setActiveStep(missing.step);
       return;
     }
+    if (form.startDate && form.endDate && form.endDate <= form.startDate) {
+      setMissingField({ field: 'endDate', label: 'วันสิ้นสุดดำเนินงาน (ต้องอยู่หลังวันเริ่มต้นดำเนินงาน)' });
+      setActiveStep(0);
+      return;
+    }
+    const budgetAmount = Number(form.budgetAmount);
+    if (!Number.isFinite(budgetAmount) || budgetAmount < 0) {
+      setMissingField({ field: 'budgetAmount', label: 'วงเงินงบประมาณรวม (ต้องเป็นเลขศูนย์หรือมากกว่า)' });
+      setActiveStep(3);
+      return;
+    }
     setMissingField(null);
     handleProjectSubmit('submitted');
   };
 
-  const [autoSaving, setAutoSaving] = React.useState(false);
-  const [autoSaveMessage, setAutoSaveMessage] = React.useState('ระบบจะบันทึกฉบับร่างอัตโนมัติ');
-  const lastAttempt = React.useRef('');
-  const saveCallback = React.useRef(onAutoSave);
-  saveCallback.current = onAutoSave;
-  const mounted = React.useRef(true);
+  const initialStrategicPlanId = React.useRef(String(metadata.strategicPlans[0]?.id || ''));
+  const userMajorRef = React.useRef(user?.major || '');
   React.useEffect(() => {
-    mounted.current = true;
-    return () => { mounted.current = false; };
-  }, []);
-  const { id: draftId, ...draftFields } = form;
-  const draftSignature = JSON.stringify(draftFields);
+    initialStrategicPlanId.current = String(metadata.strategicPlans[0]?.id || '');
+    userMajorRef.current = user?.major || '';
+  }, [metadata.strategicPlans, user?.major]);
+
+  // Discard draft immediately on leaving the page (navigation, back, unmount)
   React.useEffect(() => {
-    if (loading || autoSaving || !user || !form.projectName.trim() || !form.fiscalYear ||
-      !form.quarter || !form.strategicPlanId || !form.operatingBudgetId || !form.department ||
-      lastAttempt.current === draftSignature) return;
-    setAutoSaveMessage('มีการแก้ไข รอบันทึกอัตโนมัติ...');
-    const timer = window.setTimeout(async () => {
-      lastAttempt.current = draftSignature;
-      setAutoSaving(true);
-      setAutoSaveMessage('กำลังบันทึกอัตโนมัติ...');
-      try {
-        const saved = await saveCallback.current(form);
-        if (mounted.current) {
-          setForm((current) => current.id === draftId ? { ...current, id: saved.id } : current);
-          setAutoSaveMessage('บันทึกฉบับร่างอัตโนมัติแล้ว');
-        }
-      } catch (cause) {
-        if (mounted.current) setAutoSaveMessage(`บันทึกอัตโนมัติไม่สำเร็จ: ${cause instanceof Error ? cause.message : 'เชื่อมต่อระบบไม่ได้'} กรุณาตรวจสอบการเชื่อมต่อและแก้ไขข้อมูลเพื่อลองอีกครั้ง`);
-      } finally {
-        if (mounted.current) setAutoSaving(false);
-      }
-    }, 1000);
-    return () => window.clearTimeout(timer);
-  }, [form, draftId, draftSignature, loading, autoSaving, user, setForm]);
+    return () => {
+      setForm({
+        ...emptyForm,
+        strategicPlanId: initialStrategicPlanId.current,
+        department: userMajorRef.current,
+      });
+      setActiveStep(0);
+    };
+  }, [setForm, setActiveStep]);
 
   const fiscalYear = form.id || form.replacementForId ? form.fiscalYear : String(currentFiscalYear());
   React.useEffect(() => {
@@ -133,6 +124,7 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
       setForm((current) => current.fiscalYear === fiscalYear ? current : { ...current, fiscalYear });
     }
   }, [form.id, fiscalYear, setForm]);
+
 
   const isDepartmentAccount = user?.role === 'staff';
   React.useEffect(() => {
@@ -166,30 +158,11 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
     });
   };
 
-  // Completeness Calculation
-  const requiredFields: Array<keyof ProjectForm> = [
-    'fiscalYear',
-    'quarter',
-    'projectName',
-    'strategicPlanId',
-    'operatingBudgetId',
-    'department',
-    'owner',
-    'startDate',
-    'endDate',
-    'rationale',
-    'objectives',
-    'methods',
-    'targetGroup',
-    'kpi',
-    'budgetAmount',
-  ];
-
-  const completedRequired = requiredFields.filter((f) => {
-    const value = form[f];
-    return Array.isArray(value) ? value.some((item) => item.trim()) : value != null && Boolean(String(value).trim());
-  }).length;
-  const progressPercent = Math.round((completedRequired / requiredFields.length) * 100);
+  const formatBudgetDisplay = (val: string) => {
+    if (!val) return '';
+    const [whole, fraction] = val.split('.');
+    return `${whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}${fraction === undefined ? '' : `.${fraction}`}`;
+  };
 
   return (
     <div className="view-container animate-fade">
@@ -208,14 +181,11 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
           <button
             type="button"
             className="btn-outline"
-            disabled={loading || autoSaving}
+            disabled={loading}
             onClick={() => {
-              lastAttempt.current = '';
-              setAutoSaveMessage('ระบบจะบันทึกฉบับร่างอัตโนมัติ');
               setForm({
                 ...emptyForm,
                 strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
-                operatingBudgetId: String(metadata.operatingBudgets[0]?.id || ''),
                 department: user?.major || '',
               });
               setActiveStep(0);
@@ -225,6 +195,7 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
           </button>
         </div>
       </div>
+
 
       {form.replacementForId && <p className="quarter-review-notice">โครงการใหม่ทดแทนโครงการเดิม #{form.replacementForId} — ประวัติโครงการเดิมจะยังอยู่</p>}
       <p className="quarter-review-notice">รอบเริ่มต้นเป็นการส่งข้อเสนอโครงการ หลังอนุมัติแล้วจึงรายงานความคืบหน้าในไตรมาสถัดไป</p>
@@ -318,21 +289,6 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
               </label>
 
               <label className="field-block">
-                <span className="field-label required">แหล่งงบประมาณ</span>
-                <select
-                  name="operatingBudgetId"
-                  value={form.operatingBudgetId}
-                  onChange={(e) => updateField('operatingBudgetId', e.target.value)}
-                >
-                  {metadata.operatingBudgets.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="field-block">
                 <span className="field-label required">หน่วยงาน / ภาควิชาที่รับผิดชอบ</span>
                 {isDepartmentAccount ? <input
                   value={isDepartmentAccount ? user?.major || '' : form.department}
@@ -374,8 +330,6 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
                   type="date"
                   lang="th"
                   value={toPickerDate(form.startDate)}
-                  min={`${Number(fiscalYear) - 544}-10-01`}
-                  max={toPickerDate(form.endDate) || `${Number(fiscalYear) - 543}-09-30`}
                   onClick={(e) => e.currentTarget.showPicker?.()}
                   onChange={(e) => updateField('startDate', fromPickerDate(e.target.value))}
                 />
@@ -388,13 +342,17 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
                   type="date"
                   lang="th"
                   value={toPickerDate(form.endDate)}
-                  min={toPickerDate(form.startDate) || `${Number(fiscalYear) - 544}-10-01`}
-                  max={`${Number(fiscalYear) - 543}-09-30`}
                   onClick={(e) => e.currentTarget.showPicker?.()}
                   onChange={(e) => updateField('endDate', fromPickerDate(e.target.value))}
                 />
                 {form.endDate && <small>วันที่เลือก (พ.ศ.): {form.endDate}</small>}
+                {form.startDate && form.endDate && form.endDate <= form.startDate && (
+                  <small style={{ color: '#dc2626', fontWeight: 500, display: 'block', marginTop: 4 }}>
+                    วันสิ้นสุดดำเนินงานต้องอยู่หลังวันเริ่มต้นดำเนินงาน
+                  </small>
+                )}
               </label>
+
 
               <label className="field-block">
                 <span className="field-label">สถานที่ดำเนินงาน</span>
@@ -583,15 +541,20 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
               <label className="field-block">
                 <span className="field-label required">วงเงินงบประมาณรวม (บาท)</span>
                 <input
-                  type="number"
-                  min="0"
-                  step="1000"
+                  type="text"
+                  inputMode="numeric"
                   name="budgetAmount"
-                  value={form.budgetAmount}
-                  onChange={(e) => updateField('budgetAmount', e.target.value)}
-                  placeholder="เช่น 150000 (หากไม่ใช้งบ ให้ใส่ 0)"
+                  value={formatBudgetDisplay(form.budgetAmount)}
+                  onChange={(e) => {
+                    const raw = e.target.value.replace(/,/g, '');
+                    if (/^\d*(?:\.\d*)?$/.test(raw)) {
+                      updateField('budgetAmount', raw);
+                    }
+                  }}
+                  placeholder="เช่น 150,000 (หากไม่ใช้งบ ให้ใส่ 0)"
                 />
               </label>
+
 
               <div className="field-block col-span-2 operation-date-range">
                 <span className="field-label">แผนการดำเนินการรายเดือน / ไตรมาส</span>
@@ -672,7 +635,7 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
               <div className="summary-item">
                 <span>งบประมาณ:</span>
                 <strong className="text-purple">
-                  {formatMoney(Number(form.budgetAmount))} บาท ({metadata.operatingBudgets.find((b) => String(b.id) === form.operatingBudgetId)?.name || '-'})
+                  {formatMoney(Number(form.budgetAmount))} บาท
                 </strong>
               </div>
 
@@ -684,22 +647,11 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
               </div>
             </div>
 
-            <div className="form-completeness-box">
-              <p>{fiscalPeriodLabel(Number(form.fiscalYear), Number(form.quarter))}</p>
-              <div className="completeness-info">
-                <span>ความครบถ้วนของแบบฟอร์ม: {progressPercent}%</span>
-                <span style={{ display: 'block' }}>กรอกแล้ว {completedRequired} จาก {requiredFields.length} หัวข้อสำคัญ</span>
-              </div>
-              <div className="progress-track">
-                <div className="progress-fill bar-color-2" style={{ width: `${progressPercent}%` }} />
-              </div>
-            </div>
           </div>
         )}
 
         {/* FOOTER BUTTONS */}
         <div className="form-action-bar">
-          <span className="proposal-save-status" role="status" aria-live="polite">{autoSaveMessage}</span>
           <div className="proposal-navigation">
             {activeStep > 0 && <button
               type="button"
@@ -720,12 +672,13 @@ export const ProposalFormPage: React.FC<ProposalFormPageProps> = ({
             {activeStep === steps.length - 1 && <button
               type="button"
               className="btn-submit-proposal"
-              disabled={loading || autoSaving}
+              disabled={loading}
               onClick={submitProposal}
             >
               <SendIcon size={14} />
               <span>{form.status === 'approve' ? 'เสร็จสิ้นการแก้ไข' : form.status === 'resubmit' ? 'ส่งโครงการอีกครั้ง (Resubmit)' : 'ยื่นแบบเสนอโครงการ'}</span>
             </button>}
+
           </div>
         </div>
       </form>

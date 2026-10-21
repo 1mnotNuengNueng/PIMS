@@ -27,6 +27,35 @@ async function resolveDepartment(name: unknown, user: NonNullable<AuthedRequest[
   return department.id;
 }
 
+const PROJECT_DATE_RANGE = /^(\d{4}-\d{2}-\d{2})\s+-\s+(\d{4}-\d{2}-\d{2})$/;
+
+function validProjectDate(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parts = value.split('-').map(Number);
+  const [year, month, day] = parts;
+  if (year === undefined || month === undefined || day === undefined) return false;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+}
+
+function validateProjectSchedule(duration: string, targetDate: string) {
+  if (!duration && !targetDate) return;
+  const range = PROJECT_DATE_RANGE.exec(duration);
+  const startDate = range?.[1];
+  const endDate = range?.[2];
+  if (!startDate || !endDate || !validProjectDate(startDate) || !validProjectDate(endDate) || (targetDate && (!validProjectDate(targetDate) || targetDate !== endDate))) {
+    throw new ProjectWorkflowError(400, 'รูปแบบวันดำเนินงานไม่ถูกต้อง');
+  }
+  if (endDate <= startDate) throw new ProjectWorkflowError(400, 'วันสิ้นสุดดำเนินงานต้องอยู่หลังวันเริ่มต้นดำเนินงาน');
+}
+
+function projectBudget(value: unknown) {
+  if (value === undefined || value === null || value === '') return 0;
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) throw new ProjectWorkflowError(400, 'วงเงินงบประมาณรวมต้องเป็นตัวเลขศูนย์หรือมากกว่า');
+  return amount;
+}
+
 // Projects Listing
 projectRouter.get('/', requireAuth, async (req: AuthedRequest, res, next) => {
   try {
@@ -180,15 +209,21 @@ projectRouter.get('/:id', requireAuth, async (req: AuthedRequest, res, next) => 
 projectRouter.post('/', requireAuth, async (req: AuthedRequest, res, next) => {
   try {
     validateFiscalPeriod(req.body.fiscal_year, req.body.quarter);
-    const status = req.body.status || 'draft';
+    const status = req.body.status || 'submitted';
     const departmentId = await resolveDepartment(req.body.department_name, req.user!);
     const projectString = (value: unknown, field: string) => status === 'submitted' ? requiredString(value, field) : optionalString(value);
-    if (status !== 'draft' && status !== 'submitted') throw new ProjectWorkflowError(400, 'บันทึกข้อเสนอเป็นฉบับร่างหรือส่งรอพิจารณาเท่านั้น');
+    if (status !== 'submitted') throw new ProjectWorkflowError(400, 'กรุณาส่งข้อเสนอเพื่อรอพิจารณา');
+    const duration = projectString(req.body.duration_of_operations, 'ระยะเวลาดำเนินงาน');
+    const targetDate = optionalString(req.body.target_date);
+    validateProjectSchedule(duration, targetDate);
+    const budgetAmount = projectBudget(req.body.budget_amount);
     const replacementId = req.body.replacement_for_id == null ? null : Number(req.body.replacement_for_id);
     if (replacementId !== null && (!Number.isInteger(replacementId) || replacementId <= 0)) throw new ProjectWorkflowError(400, 'รหัสโครงการเดิมไม่ถูกต้อง');
     const project = await prisma.$transaction(async (tx) => {
       if (replacementId) await validateReplacement(tx, replacementId, Number(req.body.fiscal_year), Number(req.body.quarter), req.user!);
       await ensureProjectPeriods(tx, Number(req.body.fiscal_year));
+      const defaultBudget = await tx.operatingBudget.findFirst({ orderBy: { id: 'asc' }, select: { id: true } });
+      if (!defaultBudget) throw new ProjectWorkflowError(500, 'ไม่พบข้อมูลแหล่งงบประมาณเริ่มต้น');
       return tx.projectForm.create({
       data: {
         replacement_for_id: replacementId,
@@ -218,10 +253,10 @@ projectRouter.post('/', requireAuth, async (req: AuthedRequest, res, next) => {
         project_kpi: optionalString(req.body.project_kpi || req.body.evaluation),
         kpi_target: optionalString(req.body.kpi_target),
         target_date: optionalString(req.body.target_date),
-        budget_amount: optionalNumber(req.body.budget_amount),
+        budget_amount: budgetAmount,
         operation_plan: optionalString(req.body.operation_plan || req.body.implementation_procedure),
         progress_risk: optionalString(req.body.progress_risk),
-        operating_budget_id: Number(req.body.operating_budget_id),
+        operating_budget_id: defaultBudget.id,
         create_by: req.user!.id,
         status,
       },
@@ -257,6 +292,7 @@ projectRouter.patch('/:id', requireAuth, async (req: AuthedRequest, res, next) =
     }
 
     const status = req.body.status ?? existing.status;
+    if (status === 'draft') throw new ProjectWorkflowError(400, 'ไม่รองรับการบันทึกข้อเสนอเป็นฉบับร่าง');
     const projectString = (value: unknown, field: string) => status === 'submitted' ? requiredString(value, field) : optionalString(value);
     if (status === 'submitted') {
       const requiredFields = {
@@ -271,6 +307,12 @@ projectRouter.patch('/:id', requireAuth, async (req: AuthedRequest, res, next) =
       for (const [field, label] of Object.entries(requiredFields)) {
         requiredString(req.body[field] === undefined ? existing[field as keyof typeof requiredFields] : req.body[field], label);
       }
+    }
+    if (req.body.duration_of_operations !== undefined || req.body.target_date !== undefined || status === 'submitted') {
+      validateProjectSchedule(
+        req.body.duration_of_operations === undefined ? existing.duration_of_operations : optionalString(req.body.duration_of_operations),
+        req.body.target_date === undefined ? existing.target_date ?? '' : optionalString(req.body.target_date),
+      );
     }
     const updateData: Prisma.ProjectFormUncheckedUpdateInput = {};
     if (req.body.department_name !== undefined) updateData.department_id = await resolveDepartment(req.body.department_name, req.user!);
@@ -302,10 +344,9 @@ projectRouter.patch('/:id', requireAuth, async (req: AuthedRequest, res, next) =
     if (req.body.project_kpi !== undefined) updateData.project_kpi = optionalString(req.body.project_kpi);
     if (req.body.kpi_target !== undefined) updateData.kpi_target = optionalString(req.body.kpi_target);
     if (req.body.target_date !== undefined) updateData.target_date = optionalString(req.body.target_date);
-    if (req.body.budget_amount !== undefined) updateData.budget_amount = optionalNumber(req.body.budget_amount);
+    if (req.body.budget_amount !== undefined) updateData.budget_amount = projectBudget(req.body.budget_amount);
     if (req.body.operation_plan !== undefined) updateData.operation_plan = optionalString(req.body.operation_plan);
     if (req.body.progress_risk !== undefined) updateData.progress_risk = optionalString(req.body.progress_risk);
-    if (req.body.operating_budget_id !== undefined) updateData.operating_budget_id = Number(req.body.operating_budget_id);
     if (req.body.status !== undefined) {
       if (req.body.status !== 'draft' && req.body.status !== 'submitted') throw new ProjectWorkflowError(400, 'กรุณาบันทึกฉบับร่างหรือส่งรอพิจารณา');
       updateData.status = req.body.status;
