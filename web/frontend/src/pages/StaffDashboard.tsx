@@ -275,7 +275,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         <FileTextIcon size={13} />
                         <span>Word Form</span>
                       </button>
-                      <button
+                      {p.status === 'approve' && <button
                         type="button"
                         className="btn-action-progress"
                         onClick={() => {
@@ -283,17 +283,16 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({
                         }}
                       >
                         <TrendingUpIcon size={13} />
-                        <span>{p.status === 'approve' ? 'อัปเดตความคืบหน้า' : 'ดูรายงานความคืบหน้า'}</span>
-                      </button>
-                      <button
+                        <span>รายงานความคืบหน้า</span>
+                      </button>}
+                      {(p.status === 'draft' || p.status === 'resubmit' || p.status === 'approve') && <button
                         type="button"
                         className="btn-action-edit"
-                        disabled={p.status !== 'draft' && p.status !== 'resubmit'}
                         onClick={() => editProject(p)}
                       >
                         <EditIcon size={13} />
                         <span>แก้ไข</span>
-                      </button>
+                      </button>}
                     </div>
                   </td>
                 </tr>

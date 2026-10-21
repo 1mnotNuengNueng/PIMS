@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { PeriodFilter } from '../components/PeriodFilter';
+import { ResubmissionNotice, isResubmitted } from '../components/ResubmissionNotice';
 import { fiscalPeriodLabel, matchesPeriod } from '../utils/fiscalPeriod';
-import type { Project } from '../types';
+import type { Project, RefItem } from '../types';
 import { statusLabels, statusColors } from '../types';
 import { formatMoney } from '../utils/format';
 import {
@@ -13,18 +14,25 @@ import {
 
 interface ApprovalsPageProps {
   projects: Project[];
+  departments: RefItem[];
   setWordPreviewProject: (p: Project) => void;
   onOpenDetails: (project: Project) => void;
+  onCancellationReview: (project: Project) => void;
 }
 
 export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
   projects,
+  departments,
   setWordPreviewProject,
   onOpenDetails,
+  onCancellationReview,
 }) => {
   const [year, setYear] = useState('all');
   const [quarter, setQuarter] = useState('all');
-  const visibleProjects = projects.filter((project) => matchesPeriod(project, year, quarter));
+  const [department, setDepartment] = useState('all');
+  const visibleProjects = projects.filter((project) => matchesPeriod(project, year, quarter) &&
+    (department === 'all' || String(project.department_id ?? project.user?.Major_id) === department))
+    .sort((a, b) => Number(b.cancellation_request_status === 'pending') - Number(a.cancellation_request_status === 'pending'));
   return (
     <div className="view-container animate-fade">
       <div className="desk-hero">
@@ -49,10 +57,17 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
       </div>
 
       {/* REVIEW ITEMS GRID */}
-      <p className="review-filter-hint">กรองตามปีและไตรมาสในแผนโครงการ แล้วเลือกรอบรายงานที่ต้องการตรวจในหน้ารายละเอียด</p>
-      <PeriodFilter projects={projects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter} />
+      <p className="review-filter-hint">กรองตามปี ไตรมาส และหน่วยงาน แล้วเลือกรอบรายงานที่ต้องการตรวจในหน้ารายละเอียด</p>
+      <PeriodFilter projects={projects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter}>
+        <label>หน่วยงาน / ภาควิชา
+          <select className="filter-drop" value={department} onChange={(e) => setDepartment(e.target.value)}>
+            <option value="all">ทุกหน่วยงาน</option>
+            {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select>
+        </label>
+      </PeriodFilter>
       <div className="review-cards-list">
-        {!visibleProjects.length && <p className="empty-cell">ไม่พบโครงการในปีงบประมาณ / ไตรมาสที่เลือก</p>}
+        {!visibleProjects.length && <p className="empty-cell">ไม่พบโครงการตามปีงบประมาณ ไตรมาส และหน่วยงานที่เลือก</p>}
         {visibleProjects.map((p) => (
           <article className={`review-item-card ${statusColors[p.status]}`} key={p.id}>
             <div className="review-card-head">
@@ -61,7 +76,7 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
                   {statusLabels[p.status]}
                 </span>
                 <span className="dept-tag">
-                  <BuildingIcon size={13} /> {p.target_group}
+                  <BuildingIcon size={13} /> {(p.department?.name || p.user?.major?.name) || '-'}
                 </span>
               </div>
               <strong className="review-budget-tag">
@@ -70,6 +85,8 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
             </div>
 
             <h3 className="review-project-title">{p.name}</h3>
+            {p.cancellation_request_status === 'pending' && <div className="returned-project-reason"><strong>มีคำขอยกเลิกโครงการรอพิจารณา</strong><p>{p.cancellation_request_reason}</p><button type="button" className="btn-outline" onClick={() => onCancellationReview(p)}>พิจารณาคำขอยกเลิก</button></div>}
+            <ResubmissionNotice project={p} />
             <p className="project-period">แผนดำเนินโครงการ: {fiscalPeriodLabel(p.fiscal_year, p.quarter)}</p>
 
             <div className="review-details-grid">
@@ -98,7 +115,7 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
             {/* If already has review feedback */}
             {p.review_comment && (
               <div className="review-feedback-history">
-                <b>บันทึกความเห็นผู้ตรวจ:</b> {p.review_comment}
+                <b>{isResubmitted(p) ? 'ข้อเสนอแนะจากรอบก่อน:' : 'บันทึกความเห็นผู้ตรวจ:'}</b> {p.review_comment}
               </div>
             )}
 

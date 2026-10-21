@@ -55,6 +55,8 @@ dashboardRouter.get('/', requireAuth, async (_req: AuthedRequest, res, next) => 
           operating_budget_id: true,
           strategic_plan_id: true,
           create_by: true,
+          department_id: true,
+          department: true,
           user: { select: { Major_id: true, major: { select: { name: true } } } },
         },
       }),
@@ -99,8 +101,8 @@ dashboardRouter.get('/', requireAuth, async (_req: AuthedRequest, res, next) => 
     // Department Breakdown
     const deptStatsMap = new Map<number, { name: string; count: number; approved: number; resubmit: number; budget: number }>();
     projectsForBreakdown.forEach((p) => {
-      const majorId = p.user?.Major_id || 0;
-      const majorName = p.user?.major?.name || 'ไม่ระบุ';
+      const majorId = p.department_id ?? p.user?.Major_id ?? 0;
+      const majorName = p.department?.name || p.user?.major?.name || 'ไม่ระบุ';
       const cur = deptStatsMap.get(majorId) || { name: majorName, count: 0, approved: 0, resubmit: 0, budget: 0 };
       cur.count += 1;
       if (p.status === ProjectStatus.approve) cur.approved += 1;

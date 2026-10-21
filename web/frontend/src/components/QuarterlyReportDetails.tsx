@@ -23,8 +23,6 @@ export function QuarterlyReportDetails({ period, report }: { period: FiscalPerio
           ['งบประมาณที่ใช้เฉพาะไตรมาสนี้', `${formatMoney(report.budget_spent)} บาท`],
           ['ปัญหา / อุปสรรค', report.problems], ['แผนดำเนินงานถัดไป', report.next_steps],
           ['ผู้รายงาน', report.author.Email], ['วันที่ส่งรายงาน', displayDate(report.submitted_at)],
-          ['ผู้ตรวจ', report.reviewer?.Email], ['วันที่ตรวจ', displayDate(report.reviewed_at)],
-          ['ความเห็นผู้ตรวจ', report.review_comment],
         ].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || '-'}</dd></div>)}
       </dl>
     </>}

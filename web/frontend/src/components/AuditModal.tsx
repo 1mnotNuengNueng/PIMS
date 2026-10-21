@@ -2,7 +2,7 @@ import React from 'react';
 import type { Project } from '../types';
 import { formatMoney } from '../utils/format';
 import { ProjectDetails } from './ProjectDetails';
-import { CheckCircleIcon, ClockIcon, AlertCircleIcon, ShieldIcon } from './Icons';
+import { CheckCircleIcon, ClockIcon, ShieldIcon } from './Icons';
 
 interface AuditModalProps {
   project: Project | null;
@@ -48,7 +48,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
         <div className="modal-project-brief">
           <strong>{project.name}</strong>
           <p>
-            หน่วยงาน: {project.target_group} • ผู้เสนอ: {project.responsible_person} • งบประมาณ:{' '}
+            หน่วยงาน: {project.department?.name || project.user?.major?.name || '-'} • ผู้เสนอ: {project.responsible_person} • งบประมาณ:{' '}
             {formatMoney(project.budget_amount)} บาท
           </p>
         </div>
@@ -90,23 +90,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
             </div>
           </label>
 
-          <label className={`action-card ${reviewAction === 'cancel' ? 'selected cancel' : ''}`}>
-            <input
-              type="radio"
-              name="reviewAction"
-              checked={reviewAction === 'cancel'}
-              disabled={loading || project.status === 'cancel'}
-              onChange={() => setReviewAction('cancel')}
-            />
-            <div>
-              <strong style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <AlertCircleIcon size={16} />
-                <span>ยกเลิกโครงการ (Cancel)</span>
-              </strong>
-              <span>ไม่อนุมัติหรือไม่บรรจุโครงการลงในแผนปฏิบัติการ</span>
-            </div>
-          </label>
-        </div>
+          </div>
 
         <label className="field-block">
           <span className="field-label required">

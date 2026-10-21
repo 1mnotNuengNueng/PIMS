@@ -1,12 +1,13 @@
 import React from 'react';
 import type { FormEvent } from 'react';
-import type { User, UnitAccount } from '../types';
+import type { User, UnitAccount, RefItem } from '../types';
 import { BuildingIcon } from './Icons';
 
 interface UnitSwitchModalProps {
   show: boolean;
   onClose: () => void;
   units: UnitAccount[];
+  departments: RefItem[];
   user: User | null;
   onFastLogin: (email: string) => void;
   authMode: 'login' | 'register';
@@ -21,6 +22,7 @@ export const UnitSwitchModal: React.FC<UnitSwitchModalProps> = ({
   show,
   onClose,
   units,
+  departments,
   user,
   onFastLogin,
   authMode,
@@ -41,7 +43,7 @@ export const UnitSwitchModal: React.FC<UnitSwitchModalProps> = ({
               <BuildingIcon size={20} />
             </div>
             <div>
-              <h2>สลับบัญชีหน่วยงาน (1 Credential 1 หน่วย)</h2>
+              <h2>สลับบัญชีหน่วยงาน</h2>
               <p>เลือกสาขาวิชาเพื่อทำงานในส่วนของสาขา หรือสลับเป็นฝ่ายพัฒนาองค์กร</p>
             </div>
           </div>
@@ -64,9 +66,9 @@ export const UnitSwitchModal: React.FC<UnitSwitchModalProps> = ({
                   onClose();
                 }}
               >
-                <span className="unit-card-name">{u.majorName}</span>
+                <span className="unit-card-name">{u.role === 'admin' || u.role === 'super_admin' ? 'ฝ่ายพัฒนาองค์กร' : u.majorName}</span>
                 <span className="unit-card-sub">
-                  {u.email} • {u.role === 'admin' ? 'ผู้ตรวจฝ่ายพัฒนาองค์กร' : 'ภาควิชา / สาขาวิชา'}
+                  {u.email} • {u.role === 'super_admin' ? 'ผู้ดูแลระบบสูงสุด' : u.role === 'admin' ? 'ผู้ตรวจฝ่ายพัฒนาองค์กร' : 'ภาควิชา / สาขาวิชา'}
                 </span>
               </button>
             ))}
@@ -120,13 +122,16 @@ export const UnitSwitchModal: React.FC<UnitSwitchModalProps> = ({
           {authMode === 'register' && (
             <label className="field-block">
               <span>ชื่อหน่วยงาน / ภาควิชา</span>
-              <input
+              <select
                 required
-                type="text"
                 value={authForm.majorName}
                 onChange={(e) => setAuthForm((curr) => ({ ...curr, majorName: e.target.value }))}
-                placeholder="เช่น ภาควิชาวิศวกรรมหุ่นยนต์"
-              />
+              >
+                <option value="">เลือกหน่วยงาน / ภาควิชา</option>
+                {departments.map((department) => (
+                  <option key={department.id} value={department.name}>{department.name}</option>
+                ))}
+              </select>
             </label>
           )}
 

@@ -13,11 +13,19 @@ import {
 } from '../utils/helpers';
 import { generateProjectDocx } from '../services/docx.service';
 import { validateFiscalPeriod } from '../utils/fiscalPeriod';
-import { QuarterlyReviewError, reviewQuarterlyReport } from '../services/quarterly-review.service';
 import { ProjectWorkflowError, ensureProjectPeriods, validateReplacement, reviewProject } from '../services/project-workflow.service';
 import { saveQuarterlyReport } from '../services/quarterly-submit.service';
+import { departmentProjectFilter } from '../utils/projectDepartment';
+import { handleCancellation } from '../services/cancellation-request.service';
 
 export const projectRouter = Router();
+
+async function resolveDepartment(name: unknown, user: NonNullable<AuthedRequest['user']>) {
+  if (user.role === Role.staff) return user.majorId;
+  const department = await prisma.major.findFirst({ where: { name: requiredString(name, 'หน่วยงาน') } });
+  if (!department) throw new ProjectWorkflowError(400, 'ไม่พบหน่วยงานที่เลือก');
+  return department.id;
+}
 
 // Projects Listing
 projectRouter.get('/', requireAuth, async (req: AuthedRequest, res, next) => {
@@ -30,20 +38,25 @@ projectRouter.get('/', requireAuth, async (req: AuthedRequest, res, next) => {
 
     const where: Prisma.ProjectFormWhereInput = {};
 
-    if (filterMine) {
+    if (req.user!.role === Role.staff) {
+      Object.assign(where, departmentProjectFilter(req.user!.majorId));
+    } else if (filterMine) {
       where.create_by = req.user!.id;
     }
 
     if (majorIdParam) {
-      where.user = { Major_id: majorIdParam };
+      const requestedDepartment = departmentProjectFilter(majorIdParam);
+      where.AND = [requestedDepartment];
     }
 
     if (search) {
-      where.OR = [
+      const searchFilter = { OR: [
         { name: { contains: search } },
         { responsible_person: { contains: search } },
         { target_group: { contains: search } },
-      ];
+        { department: { name: { contains: search } } },
+      ] };
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : []), searchFilter];
     }
 
     if (statusParam && Object.values(ProjectStatus).includes(statusParam as ProjectStatus)) {
@@ -59,7 +72,7 @@ projectRouter.get('/', requireAuth, async (req: AuthedRequest, res, next) => {
       include: {
         operating_budget: true,
         strategic_plan: true,
-        user: { include: { major: true } },
+        department: true, user: { include: { major: true } },
         quarterly_reports: {
           take: 1,
           orderBy: [{ fiscal_period: { fiscal_year: { year: 'desc' } } }, { fiscal_period: { quarter: 'desc' } }],
@@ -101,7 +114,7 @@ projectRouter.get(['/:id/review-details', '/:id/reporting'], requireAuth, async 
         operating_budget: true, strategic_plan: true,
         replacement_for: { select: { id: true, name: true } },
         replacement_projects: { select: { id: true, name: true, fiscal_year: true, quarter: true } },
-        user: { select: { Email: true, Major_id: true, major: { select: { name: true } } } },
+        department: true, user: { select: { Email: true, Major_id: true, major: { select: { name: true } } } },
         quarterly_reports: {
           include: {
             fiscal_period: { include: { fiscal_year: true } },
@@ -112,7 +125,7 @@ projectRouter.get(['/:id/review-details', '/:id/reporting'], requireAuth, async 
       },
     });
     if (!project) { res.status(404).json({ message: 'ไม่พบโครงการ' }); return; }
-    if (req.user!.role === Role.staff && project.user.Major_id !== req.user!.majorId) throw new ProjectWorkflowError(403, 'ไม่มีสิทธิ์ดูรายงานของหน่วยงานอื่น');
+    if (req.user!.role === Role.staff && (project.department_id ?? project.user.Major_id) !== req.user!.majorId) throw new ProjectWorkflowError(403, 'ไม่มีสิทธิ์ดูรายงานของหน่วยงานอื่น');
     const { quarterly_reports, ...projectData } = project;
     const years = [...new Set([project.fiscal_year, ...quarterly_reports.map((report) => report.fiscal_period.fiscal_year.year)].filter((year): year is number => year !== null))];
     const periods = await prisma.fiscalPeriod.findMany({
@@ -135,22 +148,8 @@ projectRouter.put('/:id/quarterly-reports', requireAuth, async (req: AuthedReque
   } catch (error) { next(error); }
 });
 
-projectRouter.post('/:id/quarterly-reports/:reportId/review', requireAuth, async (req: AuthedRequest, res, next) => {
-  try {
-    if (req.user!.role !== Role.admin && req.user!.role !== Role.super_admin) {
-      res.status(403).json({ message: 'เฉพาะผู้ตรวจโครงการเท่านั้น' }); return;
-    }
-    const projectId = Number(req.params.id);
-    const reportId = Number(req.params.reportId);
-    if (![projectId, reportId].every((value) => Number.isInteger(value) && value > 0)) {
-      res.status(400).json({ message: 'รหัสโครงการหรือรายงานไม่ถูกต้อง' }); return;
-    }
-    const report = await prisma.$transaction((tx) => reviewQuarterlyReport(tx, projectId, reportId, req.user!.id, req.body.action, req.body.comment));
-    res.json({ report, message: req.body.action === 'approve' ? 'อนุมัติรายงานรายไตรมาสแล้ว' : 'ส่งรายงานรายไตรมาสกลับแก้ไขแล้ว' });
-  } catch (error) {
-    if (error instanceof QuarterlyReviewError) { res.status(error.statusCode).json({ message: error.message }); return; }
-    next(error);
-  }
+projectRouter.post('/:id/quarterly-reports/:reportId/review', requireAuth, (_req, res) => {
+  res.status(410).json({ message: 'รายงานความคืบหน้าใช้อัปเดตข้อมูลโดยไม่ต้องอนุมัติรายงาน' });
 });
 
 // Single Project
@@ -162,7 +161,7 @@ projectRouter.get('/:id', requireAuth, async (req: AuthedRequest, res, next) => 
       include: {
         operating_budget: true,
         strategic_plan: true,
-        user: { include: { major: true } },
+        department: true, user: { include: { major: true } },
       },
     });
 
@@ -182,6 +181,8 @@ projectRouter.post('/', requireAuth, async (req: AuthedRequest, res, next) => {
   try {
     validateFiscalPeriod(req.body.fiscal_year, req.body.quarter);
     const status = req.body.status || 'draft';
+    const departmentId = await resolveDepartment(req.body.department_name, req.user!);
+    const projectString = (value: unknown, field: string) => status === 'submitted' ? requiredString(value, field) : optionalString(value);
     if (status !== 'draft' && status !== 'submitted') throw new ProjectWorkflowError(400, 'บันทึกข้อเสนอเป็นฉบับร่างหรือส่งรอพิจารณาเท่านั้น');
     const replacementId = req.body.replacement_for_id == null ? null : Number(req.body.replacement_for_id);
     if (replacementId !== null && (!Number.isInteger(replacementId) || replacementId <= 0)) throw new ProjectWorkflowError(400, 'รหัสโครงการเดิมไม่ถูกต้อง');
@@ -191,20 +192,21 @@ projectRouter.post('/', requireAuth, async (req: AuthedRequest, res, next) => {
       return tx.projectForm.create({
       data: {
         replacement_for_id: replacementId,
+        department_id: departmentId,
         submitted_at: status === 'submitted' ? new Date() : null,
         fiscal_year: Number(req.body.fiscal_year),
         quarter: Number(req.body.quarter),
-        name: requiredString(req.body.name, 'ชื่อโครงการ'),
+        name: projectString(req.body.name, 'ชื่อโครงการ'),
         strategic_plan_id: Number(req.body.strategic_plan_id),
-        responsible_person: requiredString(req.body.responsible_person, 'ผู้รับผิดชอบ'),
-        principles_rationale: requiredString(req.body.principles_rationale, 'หลักการและเหตุผล'),
-        objective: requiredString(req.body.objective, 'วัตถุประสงค์'),
-        target_group: requiredString(req.body.target_group, 'กลุ่มเป้าหมาย'),
-        implementation_procedure: requiredString(
+        responsible_person: projectString(req.body.responsible_person, 'ผู้รับผิดชอบ'),
+        principles_rationale: projectString(req.body.principles_rationale, 'หลักการและเหตุผล'),
+        objective: projectString(req.body.objective, 'วัตถุประสงค์'),
+        target_group: projectString(req.body.target_group, 'กลุ่มเป้าหมาย'),
+        implementation_procedure: projectString(
           req.body.implementation_procedure,
           'วิธีดำเนินการ',
         ),
-        duration_of_operations: requiredString(
+        duration_of_operations: projectString(
           req.body.duration_of_operations,
           'ระยะเวลาดำเนินงาน',
         ),
@@ -226,7 +228,7 @@ projectRouter.post('/', requireAuth, async (req: AuthedRequest, res, next) => {
       include: {
         operating_budget: true,
         strategic_plan: true,
-        user: { include: { major: true } },
+        department: true, user: { include: { major: true } },
       },
       });
     }, { timeout: 15000 });
@@ -248,15 +250,34 @@ projectRouter.patch('/:id', requireAuth, async (req: AuthedRequest, res, next) =
       return;
     }
 
-    if (req.user!.role === Role.staff && existing.create_by !== req.user!.id) {
+    const owner = await prisma.user.findUnique({ where: { id: existing.create_by }, select: { Major_id: true } });
+    if (req.user!.role === Role.staff && (existing.department_id ?? owner?.Major_id) !== req.user!.majorId) {
       res.status(403).json({ message: 'ไม่มีสิทธิ์แก้ไขโครงการนี้' });
       return;
     }
 
-    const updateData: Prisma.ProjectFormUncheckedUpdateInput = {};
-    if (existing.status !== 'draft' && existing.status !== 'resubmit' && existing.status !== ProjectStatus.EMPTY_ENUM_VALUE) {
-      throw new ProjectWorkflowError(409, existing.status === 'cancel' ? 'โครงการยกเลิกแล้ว กรุณาสร้างโครงการใหม่' : 'แก้ไขได้เฉพาะฉบับร่างหรือข้อเสนอที่ส่งกลับแก้ไข');
+    const status = req.body.status ?? existing.status;
+    const projectString = (value: unknown, field: string) => status === 'submitted' ? requiredString(value, field) : optionalString(value);
+    if (status === 'submitted') {
+      const requiredFields = {
+        name: 'ชื่อโครงการ',
+        responsible_person: 'ผู้รับผิดชอบ',
+        principles_rationale: 'หลักการและเหตุผล',
+        objective: 'วัตถุประสงค์',
+        target_group: 'กลุ่มเป้าหมาย',
+        implementation_procedure: 'วิธีดำเนินการ',
+        duration_of_operations: 'ระยะเวลาดำเนินงาน',
+      } as const;
+      for (const [field, label] of Object.entries(requiredFields)) {
+        requiredString(req.body[field] === undefined ? existing[field as keyof typeof requiredFields] : req.body[field], label);
+      }
     }
+    const updateData: Prisma.ProjectFormUncheckedUpdateInput = {};
+    if (req.body.department_name !== undefined) updateData.department_id = await resolveDepartment(req.body.department_name, req.user!);
+    if (existing.status !== 'draft' && existing.status !== 'resubmit' && existing.status !== 'approve' && existing.status !== ProjectStatus.EMPTY_ENUM_VALUE) {
+      throw new ProjectWorkflowError(409, existing.status === 'cancel' ? 'โครงการยกเลิกแล้ว กรุณาสร้างโครงการใหม่' : 'โครงการอยู่ระหว่างพิจารณา ยังแก้ไขไม่ได้');
+    }
+    if (existing.status === 'approve' && req.body.status !== undefined) throw new ProjectWorkflowError(400, 'การแก้ไขโครงการที่อนุมัติแล้วต้องคงสถานะอนุมัติเดิม');
     if (req.body.fiscal_year !== undefined || req.body.quarter !== undefined) {
       const year = req.body.fiscal_year === undefined ? existing.fiscal_year : req.body.fiscal_year;
       const quarter = req.body.quarter === undefined ? existing.quarter : req.body.quarter;
@@ -265,14 +286,14 @@ projectRouter.patch('/:id', requireAuth, async (req: AuthedRequest, res, next) =
       updateData.quarter = Number(quarter);
     }
 
-    if (req.body.name !== undefined) updateData.name = requiredString(req.body.name, 'ชื่อโครงการ');
+    if (req.body.name !== undefined) updateData.name = projectString(req.body.name, 'ชื่อโครงการ');
     if (req.body.strategic_plan_id !== undefined) updateData.strategic_plan_id = Number(req.body.strategic_plan_id);
-    if (req.body.responsible_person !== undefined) updateData.responsible_person = requiredString(req.body.responsible_person, 'ผู้รับผิดชอบ');
-    if (req.body.principles_rationale !== undefined) updateData.principles_rationale = requiredString(req.body.principles_rationale, 'หลักการและเหตุผล');
-    if (req.body.objective !== undefined) updateData.objective = requiredString(req.body.objective, 'วัตถุประสงค์');
-    if (req.body.target_group !== undefined) updateData.target_group = requiredString(req.body.target_group, 'กลุ่มเป้าหมาย');
-    if (req.body.implementation_procedure !== undefined) updateData.implementation_procedure = requiredString(req.body.implementation_procedure, 'วิธีดำเนินการ');
-    if (req.body.duration_of_operations !== undefined) updateData.duration_of_operations = requiredString(req.body.duration_of_operations, 'ระยะเวลาดำเนินงาน');
+    if (req.body.responsible_person !== undefined) updateData.responsible_person = projectString(req.body.responsible_person, 'ผู้รับผิดชอบ');
+    if (req.body.principles_rationale !== undefined) updateData.principles_rationale = projectString(req.body.principles_rationale, 'หลักการและเหตุผล');
+    if (req.body.objective !== undefined) updateData.objective = projectString(req.body.objective, 'วัตถุประสงค์');
+    if (req.body.target_group !== undefined) updateData.target_group = projectString(req.body.target_group, 'กลุ่มเป้าหมาย');
+    if (req.body.implementation_procedure !== undefined) updateData.implementation_procedure = projectString(req.body.implementation_procedure, 'วิธีดำเนินการ');
+    if (req.body.duration_of_operations !== undefined) updateData.duration_of_operations = projectString(req.body.duration_of_operations, 'ระยะเวลาดำเนินงาน');
     if (req.body.location !== undefined) updateData.location = optionalString(req.body.location) || '-';
     if (req.body.evaluation !== undefined) updateData.evaluation = optionalString(req.body.evaluation) || '-';
     if (req.body.expected_outcomes !== undefined) updateData.expected_outcomes = optionalString(req.body.expected_outcomes) || '-';
@@ -306,7 +327,7 @@ projectRouter.patch('/:id', requireAuth, async (req: AuthedRequest, res, next) =
       include: {
         operating_budget: true,
         strategic_plan: true,
-        user: { include: { major: true } },
+        department: true, user: { include: { major: true } },
       },
       });
     }, { timeout: 15000 });
@@ -323,9 +344,20 @@ projectRouter.patch('/:id/progress', requireAuth, (_req, res) => {
 });
 
 // Proposal review and cancellation preserve the project and all past reports.
+projectRouter.post('/:id/cancellation-request', requireAuth, async (req: AuthedRequest, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) throw new ProjectWorkflowError(400, 'รหัสโครงการไม่ถูกต้อง');
+    await prisma.$transaction(tx => handleCancellation(tx, id, req.user!, req.body.action, req.body.reason));
+    const project = await prisma.projectForm.findUniqueOrThrow({ where: { id }, include: { department: true, user: { include: { major: true } }, strategic_plan: true, operating_budget: true } });
+    res.json({ project: serializeProject(project) });
+  } catch (error) { next(error); }
+});
+
 projectRouter.post('/:id/review', requireAuth, async (req: AuthedRequest, res, next) => {
   try {
     const id = Number(req.params.id);
+    if (req.body.action === 'cancel') throw new ProjectWorkflowError(400, 'กรุณาส่งคำขอยกเลิกโครงการเพื่อให้แอดมินพิจารณา');
     if (!Number.isInteger(id) || id <= 0) throw new ProjectWorkflowError(400, 'รหัสโครงการไม่ถูกต้อง');
     const project = await prisma.$transaction((tx) => reviewProject(tx, id, req.user!, req.body.action, req.body.comment));
     res.json({ project: serializeProject(project), message: 'บันทึกผลการพิจารณาโครงการแล้ว' });
@@ -345,7 +377,7 @@ projectRouter.get('/:id/export-word', async (req, res, next) => {
       include: {
         operating_budget: true,
         strategic_plan: true,
-        user: { include: { major: true } },
+        department: true, user: { include: { major: true } },
       },
     });
 

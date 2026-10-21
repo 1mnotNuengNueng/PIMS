@@ -32,7 +32,8 @@ authRouter.get('/units', async (_req, res, next) => {
       isApprover: u.Role === Role.admin || u.Role === Role.super_admin,
     }));
 
-    res.json({ units });
+    const majors = await prisma.major.findMany({ orderBy: { id: 'asc' } });
+    res.json({ units, majors });
   } catch (error) {
     next(error);
   }

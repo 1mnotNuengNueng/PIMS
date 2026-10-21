@@ -31,6 +31,11 @@ export type Metadata = {
 };
 
 export type Project = {
+  cancellation_request_status?: 'pending' | 'approved' | 'rejected' | null;
+  cancellation_request_reason?: string | null;
+  cancellation_review_comment?: string | null;
+  department_id?: number | null;
+  department?: RefItem | null;
   latest_report?: {
     id: number; status: QuarterlyReport['status']; progress_percent: number; budget_spent: number;
     fiscal_year: number; quarter: number;
@@ -131,6 +136,7 @@ export type ProjectForm = {
   strategicPlanId: string;
   operatingBudgetId: string;
   department: string;
+  targetGroup?: string;
   owner: string;
   ownerRole: string;
   status: Project['status'];
@@ -144,7 +150,6 @@ export type ProjectForm = {
   kpiTarget: string;
   strategicGoal: string;
   strategicKpi: string;
-  targetDate: string;
   budgetAmount: string;
   operationPlan: string;
   operationStartDate: string;
@@ -163,10 +168,10 @@ export const statusLabels: Record<Project['status'], string> = {
 };
 
 export const statusColors: Record<Project['status'], string> = {
-  draft: 'blue',
-  submitted: 'blue',
+  draft: 'gray',
+  submitted: 'amber',
   approve: 'green',
-  resubmit: 'amber',
+  resubmit: 'orange',
   cancel: 'red',
 };
 
@@ -185,6 +190,7 @@ export const emptyForm: ProjectForm = {
   strategicPlanId: '',
   operatingBudgetId: '',
   department: '',
+  targetGroup: '',
   owner: '',
   ownerRole: '',
   status: 'draft',
@@ -198,7 +204,6 @@ export const emptyForm: ProjectForm = {
   kpiTarget: '',
   strategicGoal: '',
   strategicKpi: '',
-  targetDate: '',
   budgetAmount: '',
   operationPlan: '',
   operationStartDate: '',

@@ -2143,6 +2143,102 @@
   flex-shrink: 0;
 }
 
+.resubmission-notice { display: flex; flex-direction: column; gap: 6px; margin: 10px 0; padding: 12px 14px; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 8px; background: #eff6ff; color: #1e40af; font-size: 13px; line-height: 1.6; }
+.resubmission-notice span { font-size: 12px; color: #475569; }
+.registry-search-toolbar { display: flex; }
+.registry-search-toolbar .search-input-wrap { flex: 1; width: 100%; }
+.registry-project-list { display: grid; gap: 16px; padding: 20px; }
+.registry-project-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; color: #1e293b; }
+.registry-project-card h3 { margin: 0 0 8px; font-size: 18px; line-height: 1.65; overflow-wrap: anywhere; }
+.registry-project-period { margin: 0 0 20px; color: #64748b; font-size: 13px; line-height: 1.6; }
+.registry-project-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 28px; margin: 0; }
+.registry-project-facts dt { font-size: 12px; color: #64748b; margin-bottom: 6px; }
+.registry-project-facts dd { margin: 0; font-size: 14px; font-weight: 500; line-height: 1.7; overflow-wrap: anywhere; }
+.registry-project-facts .registry-project-budget { font-size: 17px; font-weight: 700; }
+.registry-project-card .returned-project-reason { margin-top: 20px; padding: 16px; font-size: 14px; border-left: 3px solid #ea580c; }
+.registry-project-progress { margin-top: 20px; }
+.registry-project-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 22px; padding-top: 18px; border-top: 1px solid #f1f5f9; }
+.registry-project-actions button { min-height: 38px; font-size: 13px; }
+.registry-project-actions .btn-action-del { margin-left: auto; }
+@media (max-width: 900px) { .registry-project-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) {
+  .registry-project-list { padding: 12px; }
+  .registry-project-card { padding: 16px; }
+  .registry-project-facts { grid-template-columns: 1fr; gap: 14px; }
+}
+.project-status-group { margin-bottom: 24px; border-top: 4px solid #cbd5e1; }
+.project-status-group-resubmit { border-top-color: #ea580c; }
+.project-status-group-submitted { border-top-color: #d97706; }
+.project-status-group-approve { border-top-color: #059669; }
+.project-status-group-cancel { border-top-color: #dc2626; }
+.project-status-group-heading { padding: 18px 20px; border-bottom: 1px solid #e2e8f0; }
+.project-status-group-heading h2, .project-status-group-title { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0; }
+.project-status-group > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; list-style: none; }
+.project-status-group > summary::-webkit-details-marker { display: none; }
+.project-status-group > summary:focus-visible, .registry-project-expand > summary:focus-visible { outline: 2px solid #9d1028; outline-offset: -2px; border-radius: 6px; }
+.registry-group-toggle { font-size: 22px; color: #64748b; transition: transform 0.15s; }
+.project-status-group[open] > summary .registry-group-toggle { transform: rotate(180deg); }
+.registry-project-list { gap: 10px; padding: 14px; }
+.registry-project-compact { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px 22px; padding: 16px 18px; }
+.registry-project-compact h3 { font-size: 15px; margin-bottom: 4px; }
+.registry-project-compact .registry-project-period { margin: 0; font-size: 12px; }
+.registry-needs-edit { display: inline-block; margin-top: 6px; font-size: 12px; color: #9a3412; }
+.registry-compact-budget { font-size: 15px; white-space: nowrap; }
+.registry-project-expand { grid-column: 1 / -1; grid-row: 2; font-size: 13px; }
+.registry-project-expand > summary { cursor: pointer; color: #475569; padding: 6px 0; width: fit-content; }
+.registry-project-expand[open] > summary { margin-bottom: 14px; }
+.registry-project-compact .registry-project-actions { grid-column: 3; grid-row: 1; margin: 0; padding: 0; border: 0; justify-content: flex-end; gap: 8px; }
+.registry-project-compact .registry-project-actions .btn-action-del { margin-left: 0; }
+@media (max-width: 1100px) {
+  .registry-project-compact { grid-template-columns: minmax(0, 1fr) auto; }
+  .registry-project-compact .registry-project-actions { grid-column: 1 / -1; grid-row: 3; justify-content: flex-start; }
+}
+@media (max-width: 600px) {
+  .registry-project-compact { grid-template-columns: minmax(0, 1fr); padding: 14px; }
+  .registry-project-expand { grid-row: auto; }
+  .registry-project-compact .registry-project-actions { grid-row: auto; }
+}
+.project-status-group-heading .status-badge { font-size: 14px; padding: 5px 12px; }
+.project-status-group-count { font-size: 13px; font-weight: 500; color: #64748b; }
+.project-status-group-heading p { margin: 10px 0 0; font-size: 13px; color: #9a3412; }
+.project-status-group-resubmit .project-status-group-heading { background: #fff7ed; }
+
+.returned-projects {
+  margin: 0 0 24px;
+  padding: 20px;
+  border: 1px solid #fdba74;
+  border-left: 4px solid #ea580c;
+  border-radius: 12px;
+  background: #fff7ed;
+}
+.returned-projects-heading { display: flex; align-items: flex-start; gap: 10px; color: #9a3412; margin-bottom: 16px; }
+.returned-projects-heading h2 { font-size: 18px; margin: 0 0 6px; }
+.returned-projects-heading p { margin: 0; font-size: 13px; line-height: 1.6; }
+.returned-project-item { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; padding: 18px; background: #fff; border: 1px solid #fed7aa; border-radius: 10px; }
+.returned-project-item + .returned-project-item { margin-top: 12px; }
+.returned-project-details { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
+.returned-project-details h3 { font-size: 15px; margin: 10px 0 6px; }
+.returned-project-reason { margin-top: 12px; padding: 12px; border-radius: 8px; background: #fff7ed; color: #9a3412; font-size: 13px; }
+.returned-project-reason p { margin: 6px 0 0; line-height: 1.7; white-space: pre-wrap; }
+
+.status-badge.gray {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+.status-badge.gray::before {
+  background-color: #64748b;
+}
+
+.status-badge.orange {
+  background: #fff7ed;
+  color: #9a3412;
+  border: 1px solid #fed7aa;
+}
+.status-badge.orange::before {
+  background-color: #ea580c;
+}
+
 .status-badge.green {
   background: #ecfdf5;
   color: #065f46;
@@ -2455,6 +2551,7 @@
   color: #ef4444;
 }
 
+.dynamic-row input,
 .field-block input,
 .field-block select,
 .field-block textarea {
@@ -2478,6 +2575,7 @@
   resize: vertical;
 }
 
+.dynamic-row input:focus,
 .field-block input:focus,
 .field-block select:focus,
 .field-block textarea:focus {
@@ -2485,13 +2583,125 @@
   box-shadow: 0 0 0 3px rgba(157, 16, 40, 0.12);
 }
 
+.dynamic-box {
+  display: grid;
+  gap: 12px;
+  margin: 24px 0;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.dynamic-box-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.dynamic-box .btn-add-item,
+.dynamic-box .btn-remove-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dynamic-box .btn-add-item:hover {
+  background: #fff1f2;
+  border-color: #9d1028;
+  color: #9d1028;
+}
+
+.dynamic-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.dynamic-row .row-bullet {
+  color: #64748b;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dynamic-row input {
+  min-width: 0;
+}
+
+.dynamic-box .btn-remove-item {
+  color: #9d1028;
+  border-color: #fecdd3;
+}
+
+.dynamic-box .btn-remove-item:hover:not(:disabled) {
+  background: #fff1f2;
+}
+
+.dynamic-box .btn-remove-item:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+@media (max-width: 600px) {
+  .dynamic-box { padding: 12px; }
+  .dynamic-row { grid-template-columns: 20px minmax(0, 1fr) auto; gap: 6px; }
+  .dynamic-box .btn-remove-item { padding: 6px 8px; }
+}
+
+.stepper-form-card [aria-invalid="true"] {
+  border-color: #9d1028;
+  box-shadow: 0 0 0 3px rgba(157, 16, 40, 0.12);
+}
+
+.proposal-field-error {
+  padding: 12px 14px;
+  margin: 0 0 18px;
+  border: 1px solid #fecdd3;
+  border-radius: 8px;
+  color: #9d1028;
+  background: #fff1f2;
+}
+
 .form-action-bar {
   display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
   justify-content: space-between;
   align-items: center;
   margin-top: 32px;
   padding-top: 20px;
   border-top: 1px solid #f1f5f9;
+}
+
+.proposal-save-status {
+  flex: 1 1 200px;
+  color: #64748b;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.proposal-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-left: auto;
 }
 
 .btn-submit-proposal {
@@ -2821,6 +3031,54 @@
 }
 
 .project-review-modal { max-width: 880px; }
+.progress-report-modal { padding: 0; }
+.cancellation-modal > h3 { margin: 20px 0; line-height: 1.7; }
+.cancellation-modal > .field-block { margin-top: 24px; }
+.cancellation-modal .modal-footer-btns { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.department-progress-group { margin-bottom: 24px; }
+.department-progress-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
+.department-progress-heading h2 { display: flex; align-items: center; gap: 8px; font-size: 17px; margin: 0; }
+.department-progress-heading > span { color: #64748b; font-size: 13px; }
+.department-progress-group > summary { cursor: pointer; list-style: none; }
+.department-progress-group > summary::-webkit-details-marker { display: none; }
+.department-progress-heading .department-progress-title { display: flex; align-items: center; gap: 8px; color: #1e293b; font-size: 16px; font-weight: 700; }
+.department-progress-meta { display: flex; align-items: center; gap: 18px; }
+.department-progress-chevron { display: inline-block; font-size: 22px; }
+.department-progress-group[open] .department-progress-chevron { transform: rotate(180deg); }
+.department-progress-group > summary:focus-visible { outline: 2px solid #9d1028; outline-offset: -2px; }
+.department-progress-group { margin-bottom: 12px; }
+.department-progress-table td:first-child { min-width: 280px; width: 45%; }
+.department-progress-table td { vertical-align: middle; }
+.department-progress-table .staff-progress-summary { min-width: 200px; }
+.progress-edit-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 16px; margin: 0 0 20px; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; font-size: 13px; color: #475569; }
+.progress-report-modal input[readonly] { background: #f1f5f9; color: #475569; }
+.progress-report-modal > .modal-card-header { padding: 22px 26px; margin: 0; background: #fff; position: sticky; top: 0; z-index: 2; border-bottom: 1px solid #e2e8f0; }
+.progress-report-modal > .modal-card-header h2 { margin: 0; font-size: 20px; }
+.progress-report-intro { margin: 22px 26px; padding: 18px 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; }
+.progress-report-intro > span { font-size: 12px; color: #64748b; }
+.progress-report-intro h3 { margin: 6px 0 10px; font-size: 16px; line-height: 1.7; }
+.progress-report-intro p { margin: 0; font-size: 13px; line-height: 1.7; color: #64748b; }
+.progress-report-modal > form { padding: 0 26px 24px; }
+.progress-period-panel { border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 24px; }
+.progress-period-panel h3 { margin: 0 0 18px; font-size: 16px; }
+.progress-period-summary { display: flex; flex-wrap: wrap; gap: 16px 24px; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.progress-period-summary > div { display: grid; gap: 6px; }
+.progress-period-summary span { font-size: 12px; color: #64748b; }
+.progress-period-summary strong { font-size: 13px; line-height: 1.6; }
+.progress-report-modal .report-edit-fields { display: grid; gap: 22px; }
+.progress-report-modal .report-edit-fields legend { padding: 0 0 18px; font-size: 16px; font-weight: 700; }
+.progress-report-modal .field-block > span { font-size: 13px; font-weight: 600; color: #334155; }
+.progress-report-modal .field-block textarea { min-height: 82px; line-height: 1.8; }
+.progress-report-modal .progress-field-hint { margin: -10px 0 0; color: #64748b; font-size: 12px; line-height: 1.7; }
+.progress-report-modal .modal-footer-btns { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 26px; padding: 18px 0 0; border-top: 1px solid #e2e8f0; }
+.progress-report-modal > .alert-banner, .progress-report-modal > .quarter-review-notice { margin: 16px 26px; }
+@media (max-width: 600px) {
+  .progress-report-modal > .modal-card-header { padding: 18px; }
+  .progress-report-intro { margin: 18px; padding: 14px; }
+  .progress-report-modal > form { padding: 0 18px 18px; }
+  .progress-period-panel { padding: 14px; }
+  .progress-report-modal .input-grid.two-cols { grid-template-columns: 1fr; }
+}
 .project-details { margin: 20px 0; }
 .project-details h3 { color: #8f1730; margin-bottom: 12px; }
 .project-details dl { margin: 0; }
@@ -2892,6 +3150,9 @@
 .quarter-report-fields dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .quarter-review-form { margin-top: 24px; padding: 24px; border: 1px solid #fecdd3; border-radius: 12px; background: #fff8f8; }
 .quarter-empty, .quarter-review-notice { padding: 20px; border: 1px dashed #cbd5e1; border-radius: 12px; background: #f8fafc; margin-top: 16px; }
+.proposal-review-notice { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; padding: 24px; }
+.proposal-review-notice > h2, .proposal-review-notice > p { margin: 0; line-height: 1.6; }
+.proposal-review-notice > .btn-trigger-review { margin-top: 8px; }
 .review-project-full-details summary { font-size: 18px; font-weight: 600; cursor: pointer; }
 @media (max-width: 900px) { .quarter-timeline { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) {

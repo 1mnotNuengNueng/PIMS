@@ -2,8 +2,6 @@ import React from 'react';
 import type { User } from '../types';
 import {
   SearchIcon,
-  BuildingIcon,
-  ChevronDownIcon,
   BellIcon,
   UserIcon,
 } from './Icons';
@@ -42,18 +40,6 @@ export const Topbar: React.FC<TopbarProps> = ({
       </div>
 
       <div className="topbar-right">
-        {/* Fast Department / Unit Selector Button */}
-        <button
-          type="button"
-          className="btn-dept-dropdown"
-          onClick={onOpenUnitSwitch}
-          title="สลับหน่วยงาน / บัญชีประจำสาขา"
-        >
-          <BuildingIcon size={15} />
-          <span>{user.major || 'สำนักงานเลขานุการ'}</span>
-          <ChevronDownIcon size={13} />
-        </button>
-
         {/* Notification Bell with Badge */}
         <button
           type="button"

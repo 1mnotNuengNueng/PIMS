@@ -19,6 +19,7 @@ import { Sidebar } from './components/Sidebar';
 import { Topbar } from './components/Topbar';
 import { WordPreviewModal } from './components/WordPreviewModal';
 import { AuditModal } from './components/AuditModal';
+import { CancellationModal } from './components/CancellationModal';
 import { ProgressModal } from './components/ProgressModal';
 import { UnitSwitchModal } from './components/UnitSwitchModal';
 
@@ -29,6 +30,7 @@ import { StaffDashboard } from './pages/StaffDashboard';
 import { ApprovalsPage } from './pages/ApprovalsPage';
 import { ProjectReviewPage } from './pages/ProjectReviewPage';
 import { reviewProjectId } from './utils/quarterlyReview';
+import { currentFiscalYear } from './utils/fiscalPeriod';
 import { DeptMatrixPage } from './pages/DeptMatrixPage';
 import { ProjectsRegistryPage } from './pages/ProjectsRegistryPage';
 import { ProposalFormPage } from './pages/ProposalFormPage';
@@ -43,6 +45,39 @@ async function request<T>(path: string, options: RequestInit = {}) {
   const data = response.status === 204 ? null : await response.json();
   if (!response.ok) throw new Error(data?.message || 'เชื่อมต่อระบบไม่สำเร็จ');
   return data as T;
+}
+
+function projectPayload(form: ProjectForm, submitStatus: 'draft' | 'submitted') {
+  return {
+      replacement_for_id: form.replacementForId ?? null,
+      fiscal_year: Number(form.fiscalYear),
+      quarter: Number(form.quarter),
+      name: form.projectName,
+      department_name: form.department,
+      strategic_plan_id: Number(form.strategicPlanId),
+      responsible_person: form.owner,
+      principles_rationale: form.rationale,
+      objective: form.objectives.filter(Boolean).join('\n'),
+      target_group: form.targetGroup || '',
+      implementation_procedure: form.methods.filter(Boolean).join('\n'),
+      duration_of_operations: `${form.startDate} - ${form.endDate}`,
+      location: form.location,
+      evaluation: form.kpi,
+      expected_outcomes: form.expectedOutcomes || form.ownerRole,
+      strategic_goal: form.strategicGoal,
+      strategic_kpi: form.strategicKpi,
+      project_kpi: form.kpi,
+      kpi_target: form.kpiTarget,
+      target_date: form.endDate,
+      budget_amount: Number(form.budgetAmount) || 0,
+      operation_plan: form.operationStartDate
+        ? `${form.operationStartDate} ถึง ${form.operationEndDate}`
+        : form.operationPlan || form.methods.filter(Boolean).join('\n'),
+      progress_risk: form.progressRisk,
+      review_comment: form.reviewComment || '',
+      operating_budget_id: Number(form.operatingBudgetId),
+      status: submitStatus,
+    };
 }
 
 function App() {
@@ -103,6 +138,7 @@ function App() {
 
   // Review (Approve & Resubmit) Modal State
   const [reviewModalProject, setReviewModalProject] = useState<Project | null>(null);
+  const [cancellationProject, setCancellationProject] = useState<Project | null>(null);
   const [reviewAction, setReviewAction] = useState<'approve' | 'resubmit' | 'cancel'>('approve');
   const [reviewComment, setReviewComment] = useState('');
 
@@ -128,13 +164,13 @@ function App() {
     if (personaMode === 'admin') return projects;
     if (!user) return projects;
     return projects.filter(
-      (p) => p.user?.Major_id === user.majorId || p.target_group === user.major,
+      (p) => (p.department_id ?? p.user?.Major_id) === user.majorId,
     );
   }, [personaMode, user, projects]);
 
   // Count pending review for admin
   const pendingReviewCount = useMemo(() => {
-    return projects.filter((p) => p.status === 'submitted').length;
+    return projects.filter((p) => p.status === 'submitted' || p.cancellation_request_status === 'pending').length;
   }, [projects]);
 
   // Count urgent revisions for current branch
@@ -145,8 +181,9 @@ function App() {
   async function loadAppData(activeToken = token) {
     if (!activeToken) {
       try {
-        const unitList = await request<{ units: UnitAccount[] }>('/api/auth/units');
+        const unitList = await request<{ units: UnitAccount[]; majors: Metadata['majors'] }>('/api/auth/units');
         setUnits(unitList.units);
+        setMetadata((current) => ({ ...current, majors: unitList.majors }));
       } catch {}
       return;
     }
@@ -192,7 +229,7 @@ function App() {
         strategicPlanId: current.strategicPlanId || String(refs.strategicPlans[0]?.id || ''),
         operatingBudgetId:
           current.operatingBudgetId || String(refs.operatingBudgets[0]?.id || ''),
-        department: current.department || me?.major || '',
+        department: me?.role === 'staff' ? me.major : current.department || me?.major || '',
       }));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'โหลดข้อมูลไม่สำเร็จ');
@@ -203,8 +240,11 @@ function App() {
 
   useEffect(() => {
     // Always fetch public units list for login picker
-    request<{ units: UnitAccount[] }>('/api/auth/units')
-      .then((res) => setUnits(res.units))
+    request<{ units: UnitAccount[]; majors: Metadata['majors'] }>('/api/auth/units')
+      .then((res) => {
+        setUnits(res.units);
+        setMetadata((current) => ({ ...current, majors: res.majors }));
+      })
       .catch(() => {});
 
     const saved = localStorage.getItem(TOKEN_KEY);
@@ -441,7 +481,6 @@ function App() {
       kpiTarget: 'จำนวนผู้เข้าร่วมไม่น้อยกว่า 60 คน และผ่านเกณฑ์ประเมิน 100%',
       strategicGoal: 'สร้างผู้เชี่ยวชาญสหวิศวกรรมสู่สากล',
       strategicKpi: 'ร้อยละของนิสิตที่มีสมรรถนะตามมาตรฐานวิชาชีพ',
-      targetDate: '30 เม.ย. 2570',
       budgetAmount: '150000',
       operationPlan: '',
       operationStartDate: '2026-11-01',
@@ -455,6 +494,19 @@ function App() {
     setMessage(`โหลดตัวอย่างแบบเสนอโครงการของ "${deptName}" เรียบร้อยแล้ว`);
   }
 
+  async function autoSaveProject(draft: ProjectForm) {
+    const payload = projectPayload(draft, 'draft');
+    // Saving edits must preserve the review status until the user submits again.
+    const { status: _status, ...edits } = payload;
+    const result = await request<{ project: Project }>(draft.id ? `/api/projects/${draft.id}` : '/api/projects', {
+      method: draft.id ? 'PATCH' : 'POST',
+      headers: authHeaders,
+      body: JSON.stringify(draft.id ? edits : payload),
+    });
+    setProjects((current) => [result.project, ...current.filter((project) => project.id !== result.project.id)]);
+    return result.project;
+  }
+
   // Handle project submit
   async function handleProjectSubmit(submitStatus: 'draft' | 'submitted') {
     setLoading(true);
@@ -462,6 +514,26 @@ function App() {
     setMessage('');
 
     const hasOperationStart = Boolean(form.operationStartDate);
+    const validProjectDate = (value: string) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+      const [year, month, day] = value.split('-').map(Number);
+      const date = new Date(Date.UTC(year - 543, month - 1, day));
+      return date.getUTCFullYear() === year - 543 && date.getUTCMonth() === month - 1 && date.getUTCDate() === day
+        && value >= `${Number(form.fiscalYear) - 1}-10-01` && value <= `${form.fiscalYear}-09-30`;
+    };
+    if ([form.startDate, form.endDate].some((value) => value && !validProjectDate(value)) ||
+      (submitStatus === 'submitted' && (!form.startDate || !form.endDate))) {
+      setError('กรุณาเลือกวันเริ่มต้นและวันสิ้นสุดให้อยู่ในปีงบประมาณของโครงการ');
+      setActiveStep(0);
+      setLoading(false);
+      return;
+    }
+    if (form.startDate && form.endDate && form.endDate < form.startDate) {
+      setError('วันสิ้นสุดดำเนินงานต้องไม่อยู่ก่อนวันเริ่มต้น');
+      setActiveStep(0);
+      setLoading(false);
+      return;
+    }
     const hasOperationEnd = Boolean(form.operationEndDate);
     if (hasOperationStart !== hasOperationEnd) {
       setError('กรุณาเลือกทั้งวันเริ่มต้นและวันสิ้นสุดของแผนการดำเนินการ');
@@ -481,37 +553,11 @@ function App() {
       return;
     }
 
-    const payload = {
-      replacement_for_id: form.replacementForId ?? null,
-      fiscal_year: Number(form.fiscalYear),
-      quarter: Number(form.quarter),
-      name: form.projectName,
-      strategic_plan_id: Number(form.strategicPlanId),
-      responsible_person: form.owner,
-      principles_rationale: form.rationale,
-      objective: form.objectives.filter(Boolean).join('\n'),
-      target_group: form.department,
-      implementation_procedure: form.methods.filter(Boolean).join('\n'),
-      duration_of_operations: `${form.startDate} - ${form.endDate}`,
-      location: form.location,
-      evaluation: form.kpi,
-      expected_outcomes: form.expectedOutcomes || form.ownerRole,
-      strategic_goal: form.strategicGoal,
-      strategic_kpi: form.strategicKpi,
-      project_kpi: form.kpi,
-      kpi_target: form.kpiTarget,
-      target_date: form.targetDate || form.endDate,
-      budget_amount: Number(form.budgetAmount) || 0,
-      operation_plan: hasOperationStart
-        ? `${form.operationStartDate} ถึง ${form.operationEndDate}`
-        : form.operationPlan || form.methods.filter(Boolean).join('\n'),
-      progress_risk: form.progressRisk,
-      review_comment: form.reviewComment || '',
-      operating_budget_id: Number(form.operatingBudgetId),
-      status: submitStatus,
-    };
+    const fullPayload = projectPayload(form, submitStatus);
+    const { status: _status, ...approvedEdits } = fullPayload;
+    const payload = form.id && form.status === 'approve' ? approvedEdits : fullPayload;
 
-    try {
+try {
       if (form.id) {
         await request(`/api/projects/${form.id}`, {
           method: 'PATCH',
@@ -519,7 +565,7 @@ function App() {
           body: JSON.stringify(payload),
         });
         setMessage(
-          submitStatus === 'submitted'
+          form.status === 'approve' ? 'แก้ไขโครงการเรียบร้อยแล้ว' : submitStatus === 'submitted'
             ? 'ส่งโครงการเพื่อรอพิจารณาอนุมัติเรียบร้อยแล้ว'
             : 'บันทึกฉบับร่างโครงการเรียบร้อยแล้ว',
         );
@@ -566,7 +612,8 @@ function App() {
       projectName: project.name,
       strategicPlanId: String(project.strategic_plan_id),
       operatingBudgetId: String(project.operating_budget_id),
-      department: project.target_group,
+      department: (project.department?.name || project.user?.major?.name) || user?.major || '',
+      targetGroup: project.target_group,
       owner: project.responsible_person,
       ownerRole: project.expected_outcomes,
       status: project.status,
@@ -584,7 +631,6 @@ function App() {
       kpiTarget: project.kpi_target || '',
       strategicGoal: project.strategic_goal || '',
       strategicKpi: project.strategic_kpi || '',
-      targetDate: project.target_date || '',
       budgetAmount: String(project.budget_amount || ''),
       operationPlan: operationDateRange ? '' : project.operation_plan || '',
       operationStartDate: operationDateRange?.[1] || '',
@@ -599,31 +645,22 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  async function deleteProject(projectId: number) {
-    const project = projects.find((item) => item.id === projectId);
-    const reason = prompt(`เหตุผลการยกเลิกโครงการ${project ? ` “${project.name}”` : ''} (เก็บข้อมูลเดิมไว้)`);
-    if (reason === null) return;
-    if (!reason.trim()) { setError('กรุณาระบุเหตุผลการยกเลิก'); return; }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      await request(`/api/projects/${projectId}/review`, {
-        method: 'POST',
-        headers: authHeaders,
-        body: JSON.stringify({ action: 'cancel', comment: reason.trim() }),
-      });
-      setMessage('ยกเลิกโครงการเรียบร้อยแล้ว ข้อมูลยังอยู่ในระบบ');
-      await refreshProjects();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'ยกเลิกโครงการไม่สำเร็จ');
-    } finally {
-      setLoading(false);
-    }
+  function deleteProject(projectId: number) {
+    const project = projects.find(item => item.id === projectId);
+    if (project) setCancellationProject(project);
   }
 
-  // Handle Review (Approve & Resubmit) by Admin / OD
+  async function submitCancellation(action: 'request' | 'approve' | 'reject', reason: string) {
+    if (!cancellationProject) return;
+    await request(`/api/projects/${cancellationProject.id}/cancellation-request`, {
+      method: 'POST', headers: authHeaders, body: JSON.stringify({ action, reason }),
+    });
+    await refreshProjects();
+    setDetailRefreshKey(value => value + 1);
+    setCancellationProject(null);
+    setMessage(action === 'request' ? 'ส่งคำขอยกเลิกแล้ว รอแอดมินพิจารณา' : action === 'approve' ? 'อนุมัติการยกเลิกโครงการแล้ว' : 'ไม่อนุมัติการยกเลิก โครงการยังคงสถานะเดิม');
+  }
+  // Handle proposal review by admin.
   async function submitReview() {
     if (!reviewModalProject) return;
     setLoading(true);
@@ -665,19 +702,22 @@ function App() {
     await refreshProjects();
   }
 
+  function downloadWord(projectId: number) {
+    window.open(`${API_BASE}/api/projects/${projectId}/export-word`, '_blank');
+  }
+
   function startReplacement(project: Project) {
-    const nextQuarter = project.quarter && project.quarter < 4 ? project.quarter + 1 : 1;
-    const nextYear = (project.fiscal_year || Number(emptyForm.fiscalYear)) + (project.quarter === 4 ? 1 : 0);
-    setForm({ ...emptyForm, replacementForId: project.id, fiscalYear: String(nextYear), quarter: String(nextQuarter),
-      department: user?.major || '', strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
-      operatingBudgetId: String(metadata.operatingBudgets[0]?.id || '') });
+    const nextPeriod = (project.fiscal_year || currentFiscalYear()) * 4 + (project.quarter || 1) + 1;
+    const period = Math.max(nextPeriod, currentFiscalYear() * 4 + 1);
+    const year = Math.floor((period - 1) / 4);
+    const quarter = ((period - 1) % 4) + 1;
+    setForm({ ...emptyForm, replacementForId: project.id, fiscalYear: String(year), quarter: String(quarter),
+      department: project.department?.name || project.user?.major?.name || user?.major || '',
+      strategicPlanId: String(project.strategic_plan_id), operatingBudgetId: String(project.operating_budget_id) });
     setActiveStep(0);
     setActiveTab('submit_form');
     window.location.hash = '';
-  }
-
-  function downloadWord(projectId: number) {
-    window.open(`${API_BASE}/api/projects/${projectId}/export-word`, '_blank');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // Filtered projects
@@ -688,7 +728,8 @@ function App() {
         !search.trim() ||
         p.name.toLowerCase().includes(search.toLowerCase()) ||
         p.responsible_person.toLowerCase().includes(search.toLowerCase()) ||
-        p.target_group.toLowerCase().includes(search.toLowerCase());
+        p.target_group.toLowerCase().includes(search.toLowerCase()) ||
+        (p.department?.name || p.user?.major?.name || '').toLowerCase().includes(search.toLowerCase());
 
       const matchStatus = statusFilter === 'all' || p.status === statusFilter;
       const matchStrategy =
@@ -739,10 +780,6 @@ function App() {
         branchProjectsCount={currentDepartmentProjects.length}
         branchResubmitCount={branchResubmitCount}
         onLogout={handleLogout}
-        onOpenUnitSwitch={() => setShowAuthModal(true)}
-        form={form}
-        setForm={setForm}
-        metadata={metadata}
       />
 
       {/* ---------------- MAIN WORKSPACE ---------------- */}
@@ -779,11 +816,11 @@ function App() {
           onBack={() => { window.location.hash = '/approvals'; }}
           onWordPreview={setWordPreviewProject}
           onProjectReview={(project) => {
+            if (project.status !== 'submitted' || project.cancellation_request_status === 'pending') { setCancellationProject(project); return; }
             setReviewModalProject(project);
             setReviewAction(project.status === 'submitted' ? 'approve' : 'cancel');
             setReviewComment('');
           }}
-          onCreateReplacement={startReplacement}
           onReportsChanged={refreshProjects}
           refreshKey={detailRefreshKey}
         /> : <>
@@ -813,17 +850,18 @@ function App() {
         {activeTab === 'approvals' && (
           <ApprovalsPage
             projects={projects}
+            departments={metadata.majors}
             setWordPreviewProject={setWordPreviewProject}
             onOpenDetails={openProjectReview}
+            onCancellationReview={setCancellationProject}
           />
         )}
 
         {/* VIEW 4: DEPARTMENT MATRIX (ADMIN) */}
         {activeTab === 'dept_matrix' && (
           <DeptMatrixPage
-            dashboard={dashboard}
-            setSearch={setSearch}
-            setActiveTab={setActiveTab}
+            projects={projects}
+            onOpenDetails={openProjectReview}
           />
         )}
 
@@ -845,8 +883,8 @@ function App() {
             user={user}
             activeStep={activeStep}
             setActiveStep={setActiveStep}
-            loadDepartmentSample={loadDepartmentSample}
             handleProjectSubmit={handleProjectSubmit}
+            onAutoSave={autoSaveProject}
             loading={loading}
           />
         )}
@@ -874,8 +912,8 @@ function App() {
             setReviewModalProject={openProjectReview}
             setReviewAction={setReviewAction}
             setReviewComment={setReviewComment}
-            onCreateReplacement={startReplacement}
             deleteProject={deleteProject}
+            onCreateReplacement={startReplacement}
           />
         )}
         </>}
@@ -900,6 +938,7 @@ function App() {
         onClose={() => setReviewModalProject(null)}
         onSubmitReview={submitReview}
       />
+      {cancellationProject && <CancellationModal key={cancellationProject.id} project={cancellationProject} isAdmin={isAdmin} onClose={() => setCancellationProject(null)} onSave={submitCancellation} />}
 
       {/* 3. PROGRESS UPDATE MODAL (STAFF) */}
       <ProgressModal
@@ -916,6 +955,7 @@ function App() {
         show={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         units={units}
+        departments={metadata.majors}
         user={user}
         onFastLogin={handleFastLogin}
         authMode={authMode}

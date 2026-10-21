@@ -11,6 +11,7 @@ model Major {
   id    Int    @id @default(autoincrement())
   name  String @db.VarChar(500)
   users User[]
+  projects ProjectForm[]
 
   @@map("major")
 }
@@ -49,6 +50,8 @@ model User {
 }
 
 model ProjectForm {
+  department_id            Int?
+  department               Major? @relation(fields: [department_id], references: [id], onDelete: Restrict)
   fiscal_year              Int?
   quarter                  Int?
   id                       Int                 @id @default(autoincrement())
@@ -75,6 +78,11 @@ model ProjectForm {
   submitted_at             DateTime?           @db.DateTime(0)
   cancelled_at             DateTime?           @db.DateTime(0)
   cancellation_reason      String?             @db.Text
+  cancellation_request_status String?           @db.VarChar(20)
+  cancellation_request_reason String?           @db.Text
+  cancellation_requested_at DateTime?           @db.DateTime(0)
+  cancellation_review_comment String?           @db.Text
+  cancellation_reviewed_at DateTime?            @db.DateTime(0)
   replacement_for_id       Int?
   operating_budget_id      Int
   create_at                DateTime            @default(now()) @db.Timestamp(0)

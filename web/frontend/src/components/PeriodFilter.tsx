@@ -1,7 +1,9 @@
 import type { Project } from '../types';
+import type { ReactNode } from 'react';
 import { fiscalYearOptions, quarters } from '../utils/fiscalPeriod';
 
-export function PeriodFilter({ projects, year, quarter, onYearChange, onQuarterChange }: {
+export function PeriodFilter({ projects, year, quarter, onYearChange, onQuarterChange, children }: {
+  children?: ReactNode;
   projects: Project[];
   year: string;
   quarter: string;
@@ -22,5 +24,6 @@ export function PeriodFilter({ projects, year, quarter, onYearChange, onQuarterC
         {quarters.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
       </select>
     </label>
+    {children}
   </div>;
 }

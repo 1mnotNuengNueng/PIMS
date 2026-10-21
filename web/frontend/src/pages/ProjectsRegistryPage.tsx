@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { PeriodFilter } from '../components/PeriodFilter';
+import { ResubmissionNotice } from '../components/ResubmissionNotice';
 import { fiscalPeriodLabel, matchesPeriod } from '../utils/fiscalPeriod';
 import type { User, Project, ProjectForm, Metadata } from '../types';
 import { statusLabels, statusColors, emptyForm } from '../types';
@@ -9,7 +10,6 @@ import {
   FileTextIcon,
   PlusIcon,
   SearchIcon,
-  UserIcon,
   AlertCircleIcon,
   TrendingUpIcon,
   EditIcon,
@@ -69,6 +69,8 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
   const [year, setYear] = useState('all');
   const [quarter, setQuarter] = useState('all');
   const visibleProjects = filteredProjects.filter((project) => matchesPeriod(project, year, quarter));
+  const statusOrder: Project['status'][] = ['resubmit', 'submitted', 'draft', 'approve', 'cancel'];
+  const groups = statusOrder.map((status) => ({ status, projects: visibleProjects.filter((project) => project.status === status) })).filter((group) => group.projects.length > 0);
   return (
     <div className="view-container animate-fade">
       <div className="projects-header-row">
@@ -104,7 +106,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
       </div>
 
       {/* Filter Toolbar */}
-      <div className="filter-toolbar-box">
+      <div className="filter-toolbar-box registry-search-toolbar">
         <div className="search-input-wrap">
           <span className="search-icon">
             <SearchIcon size={16} />
@@ -122,7 +124,10 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
           )}
         </div>
 
-        <div className="filter-dropdowns">
+      </div>
+
+      <PeriodFilter projects={filteredProjects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter}>
+        <label>สถานะ
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -135,7 +140,8 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
             <option value="submitted">ส่งข้อเสนอแล้ว / รอพิจารณา</option>
             <option value="cancel">ยกเลิก</option>
           </select>
-
+        </label>
+        <label>ยุทธศาสตร์
           <select
             value={strategyFilter}
             onChange={(e) => setStrategyFilter(e.target.value)}
@@ -148,60 +154,49 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
               </option>
             ))}
           </select>
-        </div>
-      </div>
-
-      {/* Main Projects Table */}
-      <PeriodFilter projects={filteredProjects} year={year} quarter={quarter} onYearChange={setYear} onQuarterChange={setQuarter} />
-      <div className="content-card full-card">
-        <div className="table-responsive">
-          <table className="modern-table">
-            <thead>
-              <tr>
-                <th>ชื่อโครงการ</th>
-                <th>ภาควิชา / หน่วยงาน</th>
-                <th>งบประมาณ</th>
-                <th>กำหนดเสร็จ</th>
-                <th>สถานะ</th>
-                {personaMode === 'staff' && <th>ความคืบหน้าล่าสุด</th>}
-                <th>อัปเดตล่าสุด</th>
-                <th className="text-center">การจัดการ & เอกสาร</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleProjects.map((p) => (
-                <tr key={p.id}>
-                  <td>
-                    <strong>{p.name}</strong>
-                    <span className="cell-subtext">{fiscalPeriodLabel(p.fiscal_year, p.quarter)}</span>
-                    <span className="cell-subtext" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <UserIcon size={12} /> {p.responsible_person}
-                    </span>
+        </label>
+      </PeriodFilter>
+      {!visibleProjects.length && <div className="content-card empty-cell">ไม่พบโครงการที่ค้นหา</div>}
+      {groups.map((group) => (
+      <details key={group.status} open={group.status === 'resubmit' || statusFilter !== 'all' || groups.length === 1} className={`content-card full-card project-status-group project-status-group-${group.status}`}>
+        <summary className="project-status-group-heading">
+          <span className="project-status-group-title">
+            <span className={`status-badge ${statusColors[group.status]}`}>{statusLabels[group.status]}</span>
+            <span className="project-status-group-count">{group.projects.length} โครงการ</span>
+          </span>
+          <span className="registry-group-toggle" aria-hidden="true">⌄</span>
+        </summary>
+        <div className="registry-project-list">
+              {group.projects.map((p) => (
+                <article className="registry-project-card registry-project-compact" key={p.id}>
+                  <div className="registry-project-identity">
+                    <h3>{p.name}</h3>
+                    {p.cancellation_request_status === 'pending' && <span className="status-badge orange">รอพิจารณาคำขอยกเลิก</span>}
+                    {p.cancellation_request_status === 'rejected' && <span className="registry-needs-edit">คำขอยกเลิกไม่อนุมัติ: {p.cancellation_review_comment}</span>}
+                    <ResubmissionNotice project={p} />
+                    <p className="registry-project-period">{fiscalPeriodLabel(p.fiscal_year, p.quarter)}</p>
+                    {p.status === 'resubmit' && <span className="registry-needs-edit">ต้องแก้ไขก่อนส่งพิจารณาอีกครั้ง</span>}
+                  </div>
+                  <strong className="registry-compact-budget">{formatMoney(p.budget_amount)} บาท</strong>
+                  <details className="registry-project-expand">
+                    <summary>รายละเอียดโครงการ{p.status === 'resubmit' ? ' / สิ่งที่ต้องแก้ไข' : ''}</summary>
+                    <dl className="registry-project-facts">
+                      <div><dt>หน่วยงาน</dt><dd>{(p.department?.name || p.user?.major?.name) || '-'}</dd></div>
+                      <div><dt>ผู้รับผิดชอบ</dt><dd>{p.responsible_person || '-'}</dd></div>
+                      <div><dt>งบประมาณ</dt><dd className="registry-project-budget">{formatMoney(p.budget_amount)} บาท</dd></div>
+                      <div><dt>แหล่งงบประมาณ</dt><dd>{p.operating_budget?.name || '-'}</dd></div>
+                      <div><dt>วันสิ้นสุดดำเนินงาน</dt><dd>{p.target_date || p.duration_of_operations || '-'}</dd></div>
+                      <div><dt>อัปเดตล่าสุด</dt><dd>{new Date(p.update_at).toLocaleDateString('th-TH')}</dd></div>
+                    </dl>
                     {p.status === 'resubmit' && p.review_comment && (
-                      <span className="urgent-badge-inline" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                        <AlertCircleIcon size={12} /> ข้อเสนอแนะ: {p.review_comment}
-                      </span>
+                      <div className="returned-project-reason">
+                        <strong><AlertCircleIcon size={12} /> สิ่งที่ต้องแก้ไข</strong>
+                        <p>{p.review_comment}</p>
+                      </div>
                     )}
-                  </td>
-                  <td>
-                    <span className="dept-pill">{p.target_group}</span>
-                  </td>
-                  <td>
-                    <strong>{formatMoney(p.budget_amount)} บาท</strong>
-                    <span className="cell-subtext">{p.operating_budget?.name || '-'}</span>
-                  </td>
-                  <td>{p.target_date || p.duration_of_operations}</td>
-                  <td>
-                    <span className={`status-badge ${statusColors[p.status]}`}>
-                      {statusLabels[p.status]}
-                    </span>
-                  </td>
-                  {personaMode === 'staff' && <td><StaffProgressSummary project={p} /></td>}
-                  <td className="cell-subtext">
-                    {new Date(p.update_at).toLocaleDateString('th-TH')}
-                  </td>
-                  <td>
-                    <div className="table-actions">
+                  {personaMode === 'staff' && p.status === 'approve' && <div className="registry-project-progress"><StaffProgressSummary project={p} /></div>}
+                  </details>
+                    <div className="registry-project-actions">
                       <button
                         type="button"
                         className="btn-action-view"
@@ -213,7 +208,7 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                       </button>
 
                       {/* Staff progress update button */}
-                      {personaMode === 'staff' && (
+                      {personaMode === 'staff' && p.status === 'approve' && (
                         <button
                           type="button"
                           className="btn-action-progress"
@@ -223,22 +218,21 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                           }}
                         >
                           <TrendingUpIcon size={13} />
-                          <span>{p.status === 'approve' ? 'อัปเดตความคืบหน้า' : 'ดูรายงานความคืบหน้า'}</span>
+                          <span>รายงานความคืบหน้า</span>
                         </button>
                       )}
 
-                      <button
+                      {(p.status === 'draft' || p.status === 'resubmit' || p.status === 'approve') && <button
                         type="button"
                         className="btn-action-edit"
-                        disabled={p.status !== 'draft' && p.status !== 'resubmit'}
                         onClick={() => editProject(p)}
                       >
                         <EditIcon size={13} />
                         <span>แก้ไข</span>
-                      </button>
+                      </button>}
 
                       {/* Admin review button */}
-                      {isApprover && (
+                      {isApprover && p.status === 'submitted' && (
                         <button
                           type="button"
                           className="btn-action-review"
@@ -258,26 +252,18 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
                         className="btn-action-del"
                         disabled={p.status === 'cancel'}
                         onClick={() => deleteProject(p.id)}
-                        title="ยกเลิกโครงการ (ข้อมูลยังอยู่ในระบบ)"
+                        title={p.cancellation_request_status === 'pending' ? 'คำขอยกเลิกรอพิจารณา' : 'ขอยกเลิกโครงการ'}
                       >
                         <TrashIcon size={13} />
+                        <span>{p.cancellation_request_status === 'pending' ? (isApprover ? 'พิจารณาคำขอยกเลิก' : 'คำขอยกเลิก') : 'ขอยกเลิก'}</span>
                       </button>
-                      {p.status === 'cancel' && <button type="button" className="btn-outline" onClick={() => onCreateReplacement(p)}>สร้างโครงการทดแทน</button>}
+                      {p.status === 'cancel' && <button type="button" className="btn-outline" onClick={() => onCreateReplacement(p)}><PlusIcon size={14} /> สร้างโครงการทดแทน</button>}
                     </div>
-                  </td>
-                </tr>
+                </article>
               ))}
-              {!visibleProjects.length && (
-                <tr>
-                  <td colSpan={personaMode === 'staff' ? 8 : 7} className="text-center empty-cell">
-                    ไม่พบโครงการที่ค้นหา
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
-      </div>
+      </details>
+      ))}
     </div>
   );
 };

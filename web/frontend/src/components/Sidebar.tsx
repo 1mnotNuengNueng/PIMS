@@ -1,6 +1,5 @@
 import React from 'react';
-import type { User, ProjectForm, Metadata } from '../types';
-import { emptyForm } from '../types';
+import type { User } from '../types';
 import {
   FolderIcon,
   ShieldIcon,
@@ -21,10 +20,6 @@ interface SidebarProps {
   branchProjectsCount: number;
   branchResubmitCount: number;
   onLogout: () => void;
-  onOpenUnitSwitch: () => void;
-  form: ProjectForm;
-  setForm: React.Dispatch<React.SetStateAction<ProjectForm>>;
-  metadata: Metadata;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -37,10 +32,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   branchProjectsCount,
   branchResubmitCount,
   onLogout,
-  onOpenUnitSwitch,
-  form,
-  setForm,
-  metadata,
 }) => {
   return (
     <aside className="sidebar">
@@ -131,25 +122,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <button
               type="button"
-              className={activeTab === 'submit_form' ? 'nav-item active' : 'nav-item'}
-              onClick={() => {
-                setActiveTab('submit_form');
-                if (!form.id) {
-                  setForm({
-                    ...emptyForm,
-                    strategicPlanId: String(metadata.strategicPlans[0]?.id || ''),
-                    operatingBudgetId: String(metadata.operatingBudgets[0]?.id || ''),
-                    department: user?.major || '',
-                  });
-                }
-              }}
-            >
-              <span className="nav-icon"><FileTextIcon size={16} /></span>
-              <span>{form.id ? 'แก้ไขเอกสารโครงการ' : 'ยื่นแบบเสนอโครงการใหม่'}</span>
-            </button>
-
-            <button
-              type="button"
               className={activeTab === 'my_projects' ? 'nav-item active' : 'nav-item'}
               onClick={() => setActiveTab('my_projects')}
             >
@@ -165,22 +137,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </>
         )}
       </nav>
-
-      {/* Authenticated User Account Card in Sidebar */}
-      <div className="unit-account-card">
-        <div className="unit-account-top">
-          <span className="unit-badge-pill">1 CREDENTIAL 1 หน่วย</span>
-          <button
-            type="button"
-            className="btn-text-switch"
-            onClick={onOpenUnitSwitch}
-          >
-            เปลี่ยนหน่วยงาน ❯
-          </button>
-        </div>
-        <strong className="unit-account-title">{user.major || 'สำนักงานเลขานุการคณะวิศวกรรมศาสตร์'}</strong>
-        <span className="unit-account-email">{user.email || 'admin@ku.ac.th'}</span>
-      </div>
 
       {/* Footer Profile Bar */}
       <div className="sidebar-footer-bar">

@@ -7,7 +7,7 @@ export function periodStage(project: Pick<Project, 'fiscal_year' | 'quarter'>, p
 }
 
 export const reportStatusLabels: Record<QuarterlyReport['status'], string> = {
-  draft: 'ฉบับร่าง / ยังไม่ส่ง', submitted: 'ส่งแล้ว / รอตรวจ', approved: 'รายงานผ่านการตรวจแล้ว', resubmit: 'ส่งกลับแก้ไข',
+  draft: 'ฉบับร่าง / ยังไม่ส่ง', submitted: 'อัปเดตข้อมูลแล้ว', approved: 'อัปเดตข้อมูลแล้ว', resubmit: 'ต้องปรับปรุงข้อมูล',
 };
 
 export function preferredPeriod(periods: FiscalPeriod[], reports: QuarterlyReport[], plannedQuarter: number | null) {

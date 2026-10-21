@@ -8,7 +8,7 @@ export function ProjectDetails({ project }: { project: Project }) {
     ['สถานะ', statusLabels[project.status]],
     ['เหตุผลการยกเลิก', project.cancellation_reason],
     ['ปีงบประมาณ / ไตรมาส', fiscalPeriodLabel(project.fiscal_year, project.quarter)],
-    ['หน่วยงาน', project.user?.major?.name || project.target_group],
+    ['หน่วยงาน', project.department?.name || project.user?.major?.name || '-'],
     ['ผู้รับผิดชอบ', project.responsible_person],
     ['แผนยุทธศาสตร์', project.strategic_plan?.name],
     ['เป้าประสงค์เชิงกลยุทธ์', project.strategic_goal],

@@ -49,7 +49,7 @@ export async function generateProjectDocx(project: any): Promise<Buffer> {
     BUDGET_AMOUNT: [new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)],
     BUDGET_WORDS: [`(-${bahtWords(amount)}-)`],
     OWNER_SIGNATURE: [`(ลงชื่อ).......................................................\n(${text(project.responsible_person)})`],
-    OWNER_ROLE: [project.user?.major?.name || ''],
+    OWNER_ROLE: [project.department?.name || project.user?.major?.name || ''],
   };
   // Clone only slot paragraphs, preserving original run/paragraph styles and lists.
   const zip = await JSZip.loadAsync(await readFile(templatePath));
