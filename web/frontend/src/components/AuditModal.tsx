@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Project } from '../types';
 import { formatMoney } from '../utils/format';
 import { ProjectDetails } from './ProjectDetails';
@@ -12,7 +12,7 @@ interface AuditModalProps {
   setReviewComment: (comment: string) => void;
   loading: boolean;
   onClose: () => void;
-  onSubmitReview: () => void;
+  onSubmitReview: (action?: 'approve' | 'resubmit' | 'cancel') => void;
 }
 
 export const AuditModal: React.FC<AuditModalProps> = ({
@@ -25,7 +25,39 @@ export const AuditModal: React.FC<AuditModalProps> = ({
   onClose,
   onSubmitReview,
 }) => {
+  const [showRevisionDialog, setShowRevisionDialog] = useState(false);
+  const [showRejectionDialog, setShowRejectionDialog] = useState(reviewAction === 'cancel');
   if (!project) return null;
+
+  const isCancellation = () => reviewAction === 'cancel';
+  if (isCancellation()) {
+    return (
+      <div className="modal-backdrop" onClick={onClose}>
+        <div className="revision-feedback-dialog cancellation-reason-dialog" role="dialog" aria-modal="true" aria-label="เหตุผลการยกเลิกการอนุมัติ" onClick={(event) => event.stopPropagation()}>
+          <h3>เหตุผลการยกเลิกการอนุมัติ *</h3>
+          <textarea
+            rows={5}
+            required
+            autoFocus
+            value={reviewComment}
+            onChange={(event) => setReviewComment(event.target.value)}
+            placeholder="ระบุเหตุผลการยกเลิกการอนุมัติ"
+          />
+          <div className="modal-footer-btns">
+            <button type="button" className="btn-outline" onClick={onClose}>ยกเลิก</button>
+            <button
+              type="button"
+              className="btn-confirm-action cancel"
+              disabled={loading || !reviewComment.trim()}
+              onClick={() => onSubmitReview('cancel')}
+            >
+              ยืนยันการยกเลิก
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -51,6 +83,33 @@ export const AuditModal: React.FC<AuditModalProps> = ({
             หน่วยงาน: {project.department?.name || project.user?.major?.name || '-'} • ผู้เสนอ: {project.responsible_person} • งบประมาณ:{' '}
             {formatMoney(project.budget_amount)} บาท
           </p>
+        </div>
+
+        <div className="modal-review-shortcuts">
+          <button
+            type="button"
+            className="btn-confirm-action approve"
+            disabled={loading || project.status !== 'submitted'}
+            onClick={() => onSubmitReview('approve')}
+          >
+            ยืนยันอนุมัติโครงการ
+          </button>
+          <button
+            type="button"
+            className="btn-confirm-action resubmit"
+            disabled={loading || project.status !== 'submitted'}
+            onClick={() => setShowRevisionDialog(true)}
+          >
+            ยืนยันส่งกลับให้สาขาแก้ไข
+          </button>
+          <button
+            type="button"
+            className="btn-confirm-action cancel"
+            disabled={loading || (project.status !== 'submitted' && project.status !== 'approve')}
+            onClick={() => setShowRejectionDialog(true)}
+          >
+            ไม่อนุมัติ
+          </button>
         </div>
 
         <ProjectDetails project={project} />
@@ -93,7 +152,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
           </div>
 
         <label className="field-block">
-          <span className="field-label required">
+          <span className={`field-label ${reviewAction !== 'approve' ? 'required' : ''}`}>
             {reviewAction === 'cancel' ? 'เหตุผลการยกเลิก (จำเป็นต้องระบุ):' : reviewAction === 'resubmit'
               ? 'ข้อความแจ้งสิ่งที่สาขาต้องแก้ไข (จำเป็นต้องระบุ):'
               : 'บันทึกความเห็น / ข้อเสนอแนะเพิ่มเติม:'}
@@ -123,7 +182,7 @@ export const AuditModal: React.FC<AuditModalProps> = ({
             type="button"
             className={`btn-confirm-action ${reviewAction}`}
             disabled={loading || project.status === 'cancel' || (reviewAction !== 'cancel' && project.status !== 'submitted') || (reviewAction !== 'approve' && !reviewComment.trim())}
-            onClick={onSubmitReview}
+            onClick={() => onSubmitReview()}
           >
             {loading
               ? 'กำลังบันทึก...'
@@ -134,6 +193,58 @@ export const AuditModal: React.FC<AuditModalProps> = ({
                   : 'ยืนยันยกเลิกโครงการ'}
           </button>
         </div>
+        {showRevisionDialog && (
+          <div className="revision-feedback-backdrop" onClick={() => setShowRevisionDialog(false)}>
+            <div className="revision-feedback-dialog" role="dialog" aria-modal="true" aria-label="บันทึกความเห็นเพื่อส่งกลับแก้ไข" onClick={(event) => event.stopPropagation()}>
+              <h3>บันทึกความเห็น / ข้อเสนอแนะเพิ่มเติม</h3>
+              <textarea
+                rows={5}
+                required
+                autoFocus
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                placeholder="ระบุสิ่งที่สาขาต้องแก้ไขอย่างชัดเจน"
+              />
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-outline" onClick={() => setShowRevisionDialog(false)}>ยกเลิก</button>
+                <button
+                  type="button"
+                  className="btn-confirm-action resubmit"
+                  disabled={loading || !reviewComment.trim()}
+                  onClick={() => onSubmitReview('resubmit')}
+                >
+                  ยืนยันส่งกลับให้สาขาแก้ไข
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {showRejectionDialog && (
+          <div className="revision-feedback-backdrop" onClick={() => { setReviewComment(''); setShowRejectionDialog(false); }}>
+            <div className="revision-feedback-dialog" role="dialog" aria-modal="true" aria-label="ยืนยันไม่อนุมัติโครงการ" onClick={(event) => event.stopPropagation()}>
+              <h3>{project.status === 'approve' ? 'เหตุผลการยกเลิกการอนุมัติ *' : 'เหตุผลที่ขอยกเลิกโครงการ *'}</h3>
+              <textarea
+                rows={5}
+                required
+                autoFocus
+                value={reviewComment}
+                onChange={(event) => setReviewComment(event.target.value)}
+                placeholder={project.status === 'approve' ? 'ระบุเหตุผลการยกเลิกการอนุมัติ' : 'ระบุเหตุผลที่ไม่อนุมัติโครงการ'}
+              />
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-outline" onClick={() => { setReviewComment(''); setShowRejectionDialog(false); }}>ยกเลิก</button>
+                <button
+                  type="button"
+                  className="btn-confirm-action cancel"
+                  disabled={loading || !reviewComment.trim()}
+                  onClick={() => onSubmitReview('cancel')}
+                >
+                  ยืนยันไม่อนุมัติ
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

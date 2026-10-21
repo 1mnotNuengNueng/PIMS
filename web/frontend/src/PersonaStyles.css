@@ -762,8 +762,58 @@
   z-index: 2;
 }
 
+.notification-popover {
+  position: absolute;
+  z-index: 30;
+  top: 54px;
+  right: 148px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+}
+
+.notification-popover strong { color: #0f172a; font-size: 13px; }
+.notification-popover ul { list-style: none; margin: 10px 0 0; padding: 0; }
+.notification-popover li { display: grid; gap: 3px; padding: 9px 0; border-top: 1px solid #f1f5f9; font-size: 12px; color: #334155; }
+.notification-popover time { color: #94a3b8; font-size: 11px; }
+.notification-popover p { margin: 10px 0 0; color: #64748b; font-size: 12px; }
+
 .staff-dashboard-actions {
   margin: 16px 0 24px;
+}
+
+.faculty-report-action-row {
+  display: flex;
+  width: 100%;
+  margin: 0 0 24px;
+  position: relative;
+  z-index: 4;
+  overflow: visible;
+}
+
+.faculty-report-action.btn-hero-report {
+  background: #8f1730;
+  border-color: #8f1730;
+  color: #ffffff;
+  font-weight: 700;
+  min-height: 42px;
+  box-shadow: 0 6px 14px rgba(143, 23, 48, 0.24);
+}
+
+.faculty-report-action.btn-hero-report:hover {
+  background: #711126;
+  border-color: #711126;
+}
+
+.faculty-report-action:focus-visible { outline: 3px solid #fbbf24; outline-offset: 3px; }
+
+@media (max-width: 600px) {
+  .staff-dashboard-actions .btn-hero-report { width: 100%; justify-content: center; }
+  .faculty-report-action-row { margin: 0 0 20px; }
+  .faculty-report-action { width: 100%; justify-content: center; }
 }
 
 .btn-hero-year {
@@ -1849,6 +1899,14 @@
   border-top: 1px solid #f1f5f9;
 }
 
+.review-card-footer > button {
+  min-height: 38px;
+  min-width: 158px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-preview-word {
   padding: 8px 14px;
   border-radius: 8px;
@@ -1907,6 +1965,14 @@
   background: #1e293b;
   transform: translateY(-1px);
 }
+
+.btn-review-status {
+  background: #1d4ed8;
+  box-shadow: 0 4px 10px rgba(29, 78, 216, 0.24);
+}
+
+.btn-review-status:hover { background: #1e40af; }
+.btn-review-status:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
 
 /* --------------------------------------------------------------------------
    10. TABLES & FILTER TOOLBARS
@@ -3048,7 +3114,7 @@
   padding: 28px;
 }
 
-.project-review-modal { max-width: 880px; }
+.project-review-modal { position: relative; max-width: 880px; }
 .progress-report-modal { padding: 0; }
 .cancellation-modal > h3 { margin: 20px 0; line-height: 1.7; }
 .cancellation-modal > .field-block { margin-top: 24px; }
@@ -3105,6 +3171,7 @@
 .project-details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; color: #0f172a; }
 .period-filters { display: flex; flex-wrap: wrap; gap: 16px; margin: 16px 0; }
 .period-filters label { display: flex; flex-direction: column; gap: 6px; color: #475569; font-size: 14px; }
+.period-filters > .btn-clear-search { align-self: flex-end; }
 .project-period { color: #8f1730; font-size: 14px; margin: 8px 0 16px; }
 .project-review-page { display: grid; gap: 20px; }
 .project-review-page > .btn-outline { justify-self: start; }
@@ -3140,6 +3207,18 @@
 .quarter-decision-option:focus-within { outline: 2px solid #8f1730; outline-offset: 2px; }
 .project-status-review-action { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 24px; }
 .project-status-review-action p { color: #64748b; margin: 6px 0 0; font-size: 13px; }
+.project-status-review-action-prominent { margin: 0; padding: 16px 20px; border: 1px solid #fecdd3; border-radius: 10px; background: #fff7f8; }
+.quarter-review-section > .project-status-review-action { display: none; }
+.modal-review-shortcuts { display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 0; border-bottom: 1px solid #e2e8f0; }
+.project-review-modal:not(.cancellation-modal) > h3,
+.project-review-modal:not(.cancellation-modal) > .review-action-options,
+.project-review-modal:not(.cancellation-modal) > .field-block,
+.project-review-modal:not(.cancellation-modal) > .modal-footer-btns { display: none; }
+.revision-feedback-backdrop { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding: 20px; background: rgba(15, 23, 42, 0.38); border-radius: inherit; }
+.revision-feedback-dialog { width: min(560px, 100%); padding: 24px; border-radius: 12px; background: #fff; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22); }
+.revision-feedback-dialog h3 { margin: 0 0 14px; color: #0f172a; }
+.revision-feedback-dialog textarea { width: 100%; resize: vertical; min-height: 120px; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
+.revision-feedback-dialog .modal-footer-btns { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
 @media (max-width: 1100px) { .project-review-columns { grid-template-columns: minmax(0, 1fr); } }
 .review-page-hero { padding: 28px; border-radius: 16px; background: #fff; border: 1px solid #e2e8f0; border-top: 4px solid #8f1730; }
 .review-page-hero h1 { margin: 12px 0; overflow-wrap: anywhere; }

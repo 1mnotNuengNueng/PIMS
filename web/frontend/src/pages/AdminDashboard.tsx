@@ -1,9 +1,7 @@
 import React from 'react';
-import type { Dashboard } from '../types';
+import type { Dashboard, Project } from '../types';
 import { formatMoney } from '../utils/format';
 import {
-  CalendarIcon,
-  ChevronDownIcon,
   FileTextIcon,
   ArrowRightIcon,
   CheckCircleIcon,
@@ -16,12 +14,16 @@ import {
 
 interface AdminDashboardProps {
   dashboard: Dashboard;
+  projects: Project[];
   setActiveTab: (tab: string) => void;
+  onOpenProjectsByStatus: (status: 'approve' | 'resubmit' | 'submitted') => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   dashboard,
+  projects,
   setActiveTab,
+  onOpenProjectsByStatus,
 }) => {
   // Real dynamic calculations for Donut Chart
   const circumference = 301.59;
@@ -41,10 +43,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const draftsOffset = -(approvedLen + resubmitLen);
   const canceledOffset = -(approvedLen + resubmitLen + draftsLen);
 
-  const approvedBudgetPct =
-    dashboard.budgetTotal > 0
-      ? ((dashboard.approvedBudgetTotal / dashboard.budgetTotal) * 100).toFixed(1)
-      : '0.0';
+  const approvedProjects = projects.filter((project) => project.status === 'approve');
+  const resubmitProjects = projects.filter((project) => project.status === 'resubmit');
+  const submittedProjects = projects.filter((project) => project.status === 'submitted');
+  const approvedBudgetTotal = approvedProjects.reduce((totalBudget, project) => totalBudget + (project.budget_amount || 0), 0);
 
   const strategyChartItems = Array.from({ length: 4 }, (_, index) => dashboard.byStrategy[index] ?? null);
   const maxStrategyBudget = Math.max(...dashboard.byStrategy.map((strategy) => strategy.budget), 1);
@@ -61,32 +63,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             ศูนย์ควบคุมและติดตามความคืบหน้าโครงการ งบประมาณ และตัวชี้วัด (KPI) ภาพรวมทุกปีงบประมาณ
           </p>
         </div>
-        <div className="hero-cta-actions">
-          <button
-            type="button"
-            className="btn-hero-year"
-            onClick={() => {}}
-          >
-            <CalendarIcon size={15} />
-            <span>ภาพรวมทุกปีงบประมาณ</span>
-            <ChevronDownIcon size={14} />
-          </button>
-          <button
-            type="button"
-            className="btn-hero-report"
-            onClick={() => setActiveTab('dept_matrix')}
-          >
-            <FileTextIcon size={15} />
-            <span>สรุปรายงานรายหน่วยงาน</span>
-            <ArrowRightIcon size={14} />
-          </button>
-        </div>
+      </div>
+
+      <div className="hero-cta-actions faculty-report-action-row">
+        <button
+          type="button"
+          className="btn-hero-report faculty-report-action"
+          onClick={() => setActiveTab('dept_matrix')}
+        >
+          <FileTextIcon size={15} />
+          <span>สรุปรายงานรายหน่วยงาน</span>
+          <ArrowRightIcon size={14} />
+        </button>
       </div>
 
       {/* ROW 1: 4 KPI STAT CARDS */}
       <section className="stat-cards-grid">
         {/* Card 1: อนุมัติเรียบร้อยแล้ว */}
-        <div className="kpi-card-box" onClick={() => setActiveTab('projects')}>
+        <div className="kpi-card-box" onClick={() => onOpenProjectsByStatus('approve')}>
           <div className="kpi-top-row">
             <div className="kpi-icon-container green">
               <CheckCircleIcon size={18} />
@@ -94,7 +88,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="kpi-card-title">อนุมัติเรียบร้อยแล้ว</span>
           </div>
           <div className="kpi-value-row">
-            <strong className="kpi-big-number">{dashboard.approved}</strong>
+            <strong className="kpi-big-number">{approvedProjects.length}</strong>
             <span className="kpi-subtitle-note">
               {total > 0 ? Math.round((dashboard.approved / total) * 100) : 0}% ของโครงการทั้งหมด
             </span>
@@ -106,7 +100,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Card 2: ส่งกลับให้สาขาแก้ไข */}
-        <div className="kpi-card-box" onClick={() => setActiveTab('approvals')}>
+        <div className="kpi-card-box" onClick={() => onOpenProjectsByStatus('resubmit')}>
           <div className="kpi-top-row">
             <div className="kpi-icon-container amber">
               <ClockIcon size={18} />
@@ -114,11 +108,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="kpi-card-title">ส่งกลับให้สาขาแก้ไข</span>
           </div>
           <div className="kpi-value-row">
-            <strong className="kpi-big-number">{dashboard.resubmit}</strong>
+            <strong className="kpi-big-number">{resubmitProjects.length}</strong>
             <span className="kpi-subtitle-note">โครงการที่รอสาขาปรับปรุง</span>
           </div>
-          <div className={`kpi-trend-footer ${dashboard.resubmit > 0 ? 'negative' : 'neutral'}`}>
-            {dashboard.resubmit > 0 ? (
+          <div className={`kpi-trend-footer ${resubmitProjects.length > 0 ? 'negative' : 'neutral'}`}>
+            {resubmitProjects.length > 0 ? (
               <>
                 <AlertCircleIcon size={14} />
                 <span>มีรายการรอการแก้ไข</span>
@@ -130,15 +124,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
 
         {/* Card 3: ฉบับร่าง / รอดำเนินการ */}
-        <div className="kpi-card-box" onClick={() => setActiveTab('approvals')}>
+        <div className="kpi-card-box" onClick={() => onOpenProjectsByStatus('submitted')}>
           <div className="kpi-top-row">
             <div className="kpi-icon-container purple">
               <FileTextIcon size={18} />
             </div>
-            <span className="kpi-card-title">ฉบับร่าง / รอพิจารณา</span>
+            <span className="kpi-card-title">รอพิจารณา</span>
           </div>
           <div className="kpi-value-row">
-            <strong className="kpi-big-number">{dashboard.drafts}</strong>
+            <strong className="kpi-big-number">{submittedProjects.length}</strong>
             <span className="kpi-subtitle-note">โครงการในคิวพิจารณา</span>
           </div>
           <div className="kpi-trend-footer neutral">
@@ -155,22 +149,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <span className="kpi-card-title">งบประมาณรวมทั้งสิ้น</span>
           </div>
           <div className="kpi-value-row">
-            <strong className="kpi-big-number">{formatMoney(dashboard.budgetTotal)}</strong>
+            <strong className="kpi-big-number">{formatMoney(approvedBudgetTotal)}</strong>
             <span className="kpi-subtitle-note">
-              บาท (อนุมัติแล้ว: {formatMoney(dashboard.approvedBudgetTotal)} บ.)
-            </span>
-          </div>
-          <div className="budget-progress-line">
-            <div className="budget-track">
-              <div
-                className="budget-fill"
-                style={{
-                  width: `${approvedBudgetPct}%`,
-                }}
-              />
-            </div>
-            <span className="budget-percent-label">
-              {approvedBudgetPct}%
+              บาท (เฉพาะโครงการที่อนุมัติแล้ว)
             </span>
           </div>
         </div>

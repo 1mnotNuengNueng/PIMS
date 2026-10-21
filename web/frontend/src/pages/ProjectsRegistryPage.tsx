@@ -68,10 +68,10 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
 }) => {
   const [year, setYear] = useState('all');
   const [quarter, setQuarter] = useState('all');
-  const visibleProjects = filteredProjects.filter((project) => matchesPeriod(project, year, quarter));
+  const visibleProjects = filteredProjects.filter((project) => project.status !== 'draft' && matchesPeriod(project, year, quarter));
   const statusOrder: Project['status'][] = personaMode === 'staff'
     ? ['resubmit', 'submitted', 'approve', 'cancel']
-    : ['resubmit', 'submitted', 'draft', 'approve', 'cancel'];
+    : ['resubmit', 'submitted', 'approve', 'cancel'];
   const groups = statusOrder.map((status) => ({ status, projects: visibleProjects.filter((project) => project.status === status) })).filter((group) => group.projects.length > 0);
   const clearFilters = () => {
     setSearch('');
@@ -144,7 +144,6 @@ export const ProjectsRegistryPage: React.FC<ProjectsRegistryPageProps> = ({
             <option value="all">ทุกสถานะ</option>
             <option value="approve">อนุมัติแล้ว</option>
             <option value="resubmit">ส่งกลับแก้ไข</option>
-            {personaMode !== 'staff' && <option value="draft">ฉบับร่าง</option>}
             <option value="submitted">ส่งข้อเสนอแล้ว / รอพิจารณา</option>
             <option value="cancel">ยกเลิก</option>
           </select>

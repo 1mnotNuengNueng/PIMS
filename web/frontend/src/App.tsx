@@ -176,6 +176,24 @@ function App() {
     return projects.filter((p) => p.status === 'submitted' || p.cancellation_request_status === 'pending').length;
   }, [projects]);
 
+  const notifications = useMemo(() => {
+    const relevantProjects = isAdmin
+      ? projects.filter((project) => project.status === 'submitted' || project.cancellation_request_status === 'pending')
+      : visibleDepartmentProjects.filter((project) => project.status === 'resubmit');
+    return relevantProjects
+      .sort((a, b) => new Date(b.update_at).getTime() - new Date(a.update_at).getTime())
+      .slice(0, 5)
+      .map((project) => ({
+        id: `${project.id}:${project.status}:${project.cancellation_request_status || ''}`,
+        message: isAdmin
+          ? project.cancellation_request_status === 'pending'
+            ? `มีคำขอยกเลิกรอโครงการ ${project.name}`
+            : `มีโครงการรอพิจารณา: ${project.name}`
+          : `โครงการต้องปรับปรุงแก้ไข: ${project.name}`,
+        createdAt: project.update_at,
+      }));
+  }, [isAdmin, projects, visibleDepartmentProjects]);
+
   // Count urgent revisions for current branch
   const branchResubmitCount = useMemo(() => {
     return visibleDepartmentProjects.filter((p) => p.status === 'resubmit').length;
@@ -451,6 +469,13 @@ function App() {
     setActiveTab('my_projects');
   }
 
+  function openFacultyProjectsByStatus(status: 'approve' | 'resubmit' | 'submitted') {
+    setSearch('');
+    setStrategyFilter('all');
+    setStatusFilter(status);
+    setActiveTab('projects');
+  }
+
   // Handle project submit
 
   async function handleProjectSubmit(submitStatus: 'draft' | 'submitted') {
@@ -599,7 +624,18 @@ function App() {
 
   function deleteProject(projectId: number) {
     const project = projects.find(item => item.id === projectId);
-    if (project) setCancellationProject(project);
+    if (!project) return;
+    if (isApprover && project.status === 'approve') {
+      openApprovedCancellation(project);
+      return;
+    }
+    setCancellationProject(project);
+  }
+
+  function openApprovedCancellation(project: Project) {
+    setReviewModalProject(project);
+    setReviewAction('cancel');
+    setReviewComment('');
   }
 
   async function submitCancellation(action: 'request' | 'approve' | 'reject', reason: string) {
@@ -610,9 +646,13 @@ function App() {
     await refreshProjects();
     setDetailRefreshKey(value => value + 1);
     setCancellationProject(null);
+    if (action === 'approve' && isAdmin) {
+      window.location.hash = '/approvals';
+      setActiveTab('approvals');
+    }
   }
   // Handle proposal review by admin.
-  async function submitReview() {
+  async function submitReview(action = reviewAction) {
     if (!reviewModalProject) return;
     setLoading(true);
     setError('');
@@ -622,7 +662,7 @@ function App() {
         method: 'POST',
         headers: authHeaders,
         body: JSON.stringify({
-          action: reviewAction,
+          action,
           comment: reviewComment,
         }),
       });
@@ -632,6 +672,8 @@ function App() {
       setDetailRefreshKey((value) => value + 1);
       setReviewComment('');
       await refreshProjects();
+      window.location.hash = '/approvals';
+      setActiveTab('approvals');
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'ดำเนินการไม่สำเร็จ');
     } finally {
@@ -665,7 +707,8 @@ function App() {
 
   // Filtered projects
   const filteredProjects = useMemo(() => {
-    const sourceList = personaMode === 'staff' ? visibleDepartmentProjects : projects;
+    const sourceList = (personaMode === 'staff' ? visibleDepartmentProjects : projects)
+      .filter((project) => project.status !== 'draft');
     return sourceList.filter((p) => {
       const matchSearch =
         !search.trim() ||
@@ -717,7 +760,7 @@ function App() {
         activeTab={detailProjectId ? 'approvals' : activeTab}
         setActiveTab={(tab) => { window.location.hash = ''; setActiveTab(tab); }}
         pendingReviewCount={pendingReviewCount}
-        projectsCount={projects.length}
+        projectsCount={projects.filter((project) => project.status !== 'draft').length}
         branchProjectsCount={visibleDepartmentProjects.length}
         branchResubmitCount={branchResubmitCount}
         onLogout={handleLogout}
@@ -732,7 +775,7 @@ function App() {
           user={user}
           isAdmin={isAdmin}
           onOpenUnitSwitch={() => setShowAuthModal(true)}
-          pendingReviewCount={pendingReviewCount}
+          notifications={notifications}
         />
 
         {/* FEEDBACK BANNERS */}
@@ -751,9 +794,9 @@ function App() {
           onBack={() => { window.location.hash = '/approvals'; }}
           onWordPreview={setWordPreviewProject}
           onProjectReview={(project) => {
-            if (project.status !== 'submitted' || project.cancellation_request_status === 'pending') { setCancellationProject(project); return; }
+            if (project.cancellation_request_status === 'pending') { setCancellationProject(project); return; }
             setReviewModalProject(project);
-            setReviewAction(project.status === 'submitted' ? 'approve' : 'cancel');
+            setReviewAction(project.status === 'approve' ? 'cancel' : 'approve');
             setReviewComment('');
           }}
           onReportsChanged={refreshProjects}
@@ -763,7 +806,9 @@ function App() {
         {activeTab === 'dashboard' && personaMode === 'admin' && (
           <AdminDashboard
             dashboard={dashboard}
+            projects={projects}
             setActiveTab={setActiveTab}
+            onOpenProjectsByStatus={openFacultyProjectsByStatus}
           />
         )}
 
@@ -790,6 +835,7 @@ function App() {
             setWordPreviewProject={setWordPreviewProject}
             onOpenDetails={openProjectReview}
             onCancellationReview={setCancellationProject}
+            onCancelApprovedProject={openApprovedCancellation}
           />
         )}
 
@@ -865,6 +911,7 @@ function App() {
 
       {/* 2. AUDIT & APPROVAL MODAL (ADMIN) */}
       <AuditModal
+        key={reviewModalProject?.id ?? 'empty'}
         project={reviewModalProject}
         reviewAction={reviewAction}
         setReviewAction={setReviewAction}

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { User } from '../types';
 import {
   SearchIcon,
@@ -12,7 +12,7 @@ interface TopbarProps {
   user: User;
   isAdmin: boolean;
   onOpenUnitSwitch: () => void;
-  pendingReviewCount: number;
+  notifications: Array<{ id: string; message: string; createdAt: string }>;
 }
 
 export const Topbar: React.FC<TopbarProps> = ({
@@ -21,8 +21,17 @@ export const Topbar: React.FC<TopbarProps> = ({
   user,
   isAdmin,
   onOpenUnitSwitch,
-  pendingReviewCount,
+  notifications,
 }) => {
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [readNotificationIds, setReadNotificationIds] = useState<Set<string>>(() => new Set());
+  const unreadCount = notifications.filter((notification) => !readNotificationIds.has(notification.id)).length;
+
+  const openNotifications = () => {
+    setIsNotificationOpen((open) => !open);
+    setReadNotificationIds(new Set(notifications.map((notification) => notification.id)));
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -44,14 +53,29 @@ export const Topbar: React.FC<TopbarProps> = ({
         <button
           type="button"
           className="btn-bell-notification"
-          onClick={onOpenUnitSwitch}
+          onClick={openNotifications}
           title="การแจ้งเตือนงาน"
         >
           <BellIcon size={17} />
-          {isAdmin && pendingReviewCount > 0 && (
-            <span className="bell-badge-count">{pendingReviewCount}</span>
+          {unreadCount > 0 && (
+            <span className="bell-badge-count">{unreadCount > 99 ? '99+' : unreadCount}</span>
           )}
         </button>
+        {isNotificationOpen && (
+          <div className="notification-popover" role="status" aria-label="การแจ้งเตือนล่าสุด">
+            <strong>การแจ้งเตือนล่าสุด</strong>
+            {notifications.length ? (
+              <ul>
+                {notifications.map((notification) => (
+                  <li key={notification.id}>
+                    <span>{notification.message}</span>
+                    <time>{new Date(notification.createdAt).toLocaleDateString('th-TH')}</time>
+                  </li>
+                ))}
+              </ul>
+            ) : <p>ไม่มีการแจ้งเตือนใหม่</p>}
+          </div>
+        )}
 
         {/* User Pill */}
         <div className="topbar-user-pill" onClick={onOpenUnitSwitch}>

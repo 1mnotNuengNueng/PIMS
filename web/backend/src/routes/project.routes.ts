@@ -398,7 +398,6 @@ projectRouter.post('/:id/cancellation-request', requireAuth, async (req: AuthedR
 projectRouter.post('/:id/review', requireAuth, async (req: AuthedRequest, res, next) => {
   try {
     const id = Number(req.params.id);
-    if (req.body.action === 'cancel') throw new ProjectWorkflowError(400, 'กรุณาส่งคำขอยกเลิกโครงการเพื่อให้แอดมินพิจารณา');
     if (!Number.isInteger(id) || id <= 0) throw new ProjectWorkflowError(400, 'รหัสโครงการไม่ถูกต้อง');
     const project = await prisma.$transaction((tx) => reviewProject(tx, id, req.user!, req.body.action, req.body.comment));
     res.json({ project: serializeProject(project), message: 'บันทึกผลการพิจารณาโครงการแล้ว' });

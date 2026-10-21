@@ -36,9 +36,11 @@ export async function reviewProject(tx: Prisma.TransactionClient, id: number, us
   if (!['approve', 'resubmit', 'cancel'].includes(String(action))) throw new ProjectWorkflowError(400, 'ผลการพิจารณาไม่ถูกต้อง');
   const project = await tx.projectForm.findUnique({ where: { id }, include: { department: true, user: { include: { major: true } } } });
   if (!project) throw new ProjectWorkflowError(404, 'ไม่พบโครงการ');
-  if (user.role === 'staff' && (action !== 'cancel' || (project.department_id ?? project.user.Major_id) !== user.majorId)) throw new ProjectWorkflowError(403, 'ไม่มีสิทธิ์พิจารณาโครงการนี้');
+  if (action === 'cancel' && user.role !== 'admin' && user.role !== 'super_admin') throw new ProjectWorkflowError(403, 'เฉพาะแอดมินที่ไม่อนุมัติโครงการได้');
+  if (user.role === 'staff' && (project.department_id ?? project.user.Major_id) !== user.majorId) throw new ProjectWorkflowError(403, 'ไม่มีสิทธิ์พิจารณาโครงการนี้');
   if (project.status === 'cancel') throw new ProjectWorkflowError(409, 'โครงการยกเลิกแล้ว กรุณาสร้างโครงการใหม่แทนการเปิดโครงการเดิม');
   const text = typeof comment === 'string' ? comment.trim() : '';
+  if (action === 'cancel' && project.status !== 'submitted' && project.status !== 'approve') throw new ProjectWorkflowError(409, 'ไม่อนุมัติหรือยกเลิกได้เฉพาะข้อเสนอที่ส่งรอพิจารณาหรืออนุมัติแล้ว');
   if ((action === 'cancel' || action === 'resubmit') && !text) throw new ProjectWorkflowError(400, action === 'cancel' ? 'กรุณาระบุเหตุผลการยกเลิก' : 'กรุณาระบุสิ่งที่ต้องแก้ไข');
   if (action !== 'cancel' && project.status !== 'submitted') throw new ProjectWorkflowError(409, 'พิจารณาได้เฉพาะข้อเสนอที่ส่งรอพิจารณาแล้ว');
   const data: Prisma.ProjectFormUncheckedUpdateManyInput = action === 'cancel'

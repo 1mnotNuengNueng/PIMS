@@ -18,6 +18,7 @@ interface ApprovalsPageProps {
   setWordPreviewProject: (p: Project) => void;
   onOpenDetails: (project: Project) => void;
   onCancellationReview: (project: Project) => void;
+  onCancelApprovedProject: (project: Project) => void;
 }
 
 export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
@@ -26,13 +27,25 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
   setWordPreviewProject,
   onOpenDetails,
   onCancellationReview,
+  onCancelApprovedProject,
 }) => {
   const [year, setYear] = useState('all');
   const [quarter, setQuarter] = useState('all');
   const [department, setDepartment] = useState('all');
-  const visibleProjects = projects.filter((project) => matchesPeriod(project, year, quarter) &&
-    (department === 'all' || String(project.department_id ?? project.user?.Major_id) === department))
-    .sort((a, b) => Number(b.cancellation_request_status === 'pending') - Number(a.cancellation_request_status === 'pending'));
+  const [status, setStatus] = useState('all');
+  const clearFilters = () => {
+    setYear('all');
+    setQuarter('all');
+    setDepartment('all');
+    setStatus('all');
+  };
+  const visibleProjects = projects.filter((project) => project.status !== 'draft' && matchesPeriod(project, year, quarter) &&
+    (department === 'all' || String(project.department_id ?? project.user?.Major_id) === department) &&
+    (status === 'all' || project.status === status))
+    .sort((a, b) => {
+      const priority = (project: Project) => project.status === 'submitted' ? 0 : project.cancellation_request_status === 'pending' ? 1 : 2;
+      return priority(a) - priority(b) || new Date(b.update_at).getTime() - new Date(a.update_at).getTime();
+    });
   return (
     <div className="view-container animate-fade">
       <div className="desk-hero">
@@ -65,6 +78,16 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
             {departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>
+        <label>สถานะ
+          <select className="filter-drop" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="all">ทุกสถานะ</option>
+            <option value="submitted">ส่งข้อเสนอแล้ว / รอพิจารณา</option>
+            <option value="resubmit">ส่งกลับแก้ไข</option>
+            <option value="approve">อนุมัติแล้ว</option>
+            <option value="cancel">ยกเลิก</option>
+          </select>
+        </label>
+        <button type="button" className="btn-clear-search" onClick={clearFilters}>ล้างตัวกรอง</button>
       </PeriodFilter>
       <div className="review-cards-list">
         {!visibleProjects.length && <p className="empty-cell">ไม่พบโครงการตามปีงบประมาณ ไตรมาส และหน่วยงานที่เลือก</p>}
@@ -121,8 +144,8 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
 
             {/* ACTION CONTROLS */}
             <div className="review-card-footer">
-              <button type="button" className="btn-trigger-review" onClick={() => onOpenDetails(p)}>
-                ดูรายละเอียด / ตรวจรายไตรมาส
+              <button type="button" className={`btn-trigger-review ${p.status === 'submitted' ? 'btn-review-status' : ''}`} onClick={() => onOpenDetails(p)}>
+                {p.status === 'submitted' ? 'พิจารณาสถานะโครงการ' : 'ดูรายละเอียด / ตรวจรายไตรมาส'}
               </button>
               <button
                 type="button"
@@ -132,6 +155,11 @@ export const ApprovalsPage: React.FC<ApprovalsPageProps> = ({
                 <FileTextIcon size={14} />
                 <span>ตรวจแบบฟอร์มทางการ (Word Form)</span>
               </button>
+              {p.status === 'approve' && p.cancellation_request_status !== 'pending' && (
+                <button type="button" className="btn-danger" onClick={(event) => { event.stopPropagation(); onCancelApprovedProject(p); }}>
+                  ยกเลิกการอนุมัติ
+                </button>
+              )}
 
             </div>
           </article>

@@ -63,6 +63,14 @@ export function ProjectReviewPage({ projectId, request, authHeaders, onBack, onW
         <h1>ตรวจโครงการและรายงานความคืบหน้า</h1>
         <p>อ่านรายละเอียดโครงการ และติดตามข้อมูลอัปเดตของไตรมาสที่เลือก</p>
       </header>
+      {data.project.status !== 'cancel' && (
+        <div className="project-status-review-action project-status-review-action-prominent">
+          <div><strong>พิจารณาสถานะโครงการ</strong><p>อนุมัติโครงการ หรือส่งกลับให้สาขาแก้ไข</p></div>
+          <button type="button" className="btn-trigger-review btn-review-status" onClick={() => onProjectReview(data.project)}>
+            {data.project.cancellation_request_status === 'pending' ? 'พิจารณาคำขอยกเลิก' : data.project.status === 'submitted' ? 'พิจารณาสถานะโครงการ' : 'ขอยกเลิกโครงการ'}
+          </button>
+        </div>
+      )}
       <div className="project-review-columns">
       <ProjectSummary project={data.project} onWordPreview={onWordPreview} />
       <section className="content-card quarter-review-section">
